@@ -8,9 +8,29 @@ final class QapiaNotificationDelegate: NSObject, NSApplicationDelegate, UNUserNo
     @MainActor private var pendingCalendarEventID: String?
     @MainActor private let recordingExperienceController = RecordingExperienceController()
     @MainActor private var screenObservation: AnyCancellable?
+    @MainActor private var terminationTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    @MainActor
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let viewModel else { return .terminateNow }
+        // AppKit may ask again while a `.terminateLater` reply is pending. The
+        // first task owns the single reply and every later request joins it.
+        guard terminationTask == nil else { return .terminateLater }
+
+        terminationTask = Task { @MainActor [weak self, weak viewModel] in
+            guard let self, let viewModel else {
+                sender.reply(toApplicationShouldTerminate: true)
+                return
+            }
+            let criticalDataWasPersisted = await viewModel.prepareForTermination()
+            sender.reply(toApplicationShouldTerminate: criticalDataWasPersisted)
+            self.terminationTask = nil
+        }
+        return .terminateLater
     }
 
     @MainActor

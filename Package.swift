@@ -14,10 +14,20 @@ let package = Package(
     targets: [
         .target(
             name: "QapiaCore",
-            dependencies: ["WhisperCpp"],
+            dependencies: ["WhisperCpp", "CoreAudioTapSupport"],
             path: ".",
             exclude: [
-                "App", "AppStore", "Assets", "Build", "Docs", "Scripts", "Tests", "Package.swift", "README.md", "LICENSE"
+                "App", "AppStore", "Assets", "Docs", "Scripts", "Tests", "Package.swift", "README.md", "LICENSE",
+                "Services/AudioTapSupport"
+            ]
+        ),
+        .target(
+            name: "CoreAudioTapSupport",
+            path: "Services/AudioTapSupport",
+            publicHeadersPath: "include",
+            linkerSettings: [
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("AudioToolbox")
             ]
         ),
         .executableTarget(
@@ -27,10 +37,6 @@ let package = Package(
             exclude: ["Info.plist", "QAPia.entitlements"],
             linkerSettings: [
                 .unsafeFlags([
-                    "-Xlinker", "-sectcreate",
-                    "-Xlinker", "__TEXT",
-                    "-Xlinker", "__info_plist",
-                    "-Xlinker", "App/Info.plist",
                     "-Xlinker", "-rpath",
                     "-Xlinker", "@executable_path/../Frameworks"
                 ])
@@ -39,7 +45,8 @@ let package = Package(
         .testTarget(
             name: "QapiaTests",
             dependencies: ["QapiaCore"],
-            path: "Tests"
+            path: "Tests",
+            exclude: ["Fixtures"]
         ),
         .binaryTarget(
             name: "WhisperCpp",

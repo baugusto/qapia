@@ -63,6 +63,18 @@ public struct Meeting: Identifiable, Hashable, Codable, Sendable {
         return String(format: "%d min %02d s", minutes, seconds)
     }
 
+    public var recordingDateText: String {
+        createdAt.formatted(.dateTime.day().month(.abbreviated).year())
+    }
+
+    public var recordingTimeText: String {
+        createdAt.formatted(date: .omitted, time: .shortened)
+    }
+
+    public var recordingMetadataText: String {
+        "\(recordingDateText) · \(recordingTimeText) · \(durationText)"
+    }
+
     public var sidebarMetadata: String {
         switch state {
         case .preparingAudio, .transcribing, .transcribed, .summarizing:
@@ -115,6 +127,10 @@ public struct Meeting: Identifiable, Hashable, Codable, Sendable {
 
     public var hasUnavailableAudio: Bool {
         missingRecordingSegmentCount > 0
+    }
+
+    public var captureWarnings: [String] {
+        recordingSegments.compactMap(\.captureWarning)
     }
 
     public static let mockHistory: [Meeting] = [

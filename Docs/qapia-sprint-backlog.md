@@ -1,7 +1,7 @@
 # QAP.ia — Sprint Backlog
 
-**Data de referência:** 26/08/2026
-**Sprint ativa:** Sprint 9 — Agenda, metadados, busca e distribuição
+**Data de referência:** 26/08/2026<br>
+**Sprint ativa:** Sprint 9 — Agenda, metadados, busca e distribuição<br>
 **Status geral:** Sprints 0 a 5, 7 e 8 concluídas. Sprint 9 implementada tecnicamente; conexão real aguarda Client ID e validação do responsável.
 
 ## 1. Regras de execução
@@ -63,7 +63,7 @@ Implementar segmentos M4A/AAC, captura de áudio do sistema e microfone, Start/P
 
 **Status:** Concluída e aprovada.
 
-Transcrever segmentos somente após Stop, ordenar por sequência, combinar textos e persistir transcript. O runtime do Whisper acompanha o app; o modelo `small` é baixado e validado automaticamente no primeiro uso, sem Homebrew ou FFmpeg.
+Transcrever segmentos somente após Stop, ordenar por sequência, combinar textos e persistir transcript. O runtime do Whisper acompanha o app; o modelo `ggml-small.bin` é baixado e validado automaticamente quando necessário, sem Homebrew ou FFmpeg.
 
 ## 6. Sprint 4 — Ollama + Templates
 

@@ -7,8 +7,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             PageHeader(
-                title: "Templates de resumo",
-                subtitle: "Personalize como o QAP.ia organiza cada tipo de reunião."
+                title: "Configurações",
+                subtitle: "Personalize a organização das suas reuniões."
             ) {
                 StatusIndicator(
                     title: "\(viewModel.templates.count) templates",

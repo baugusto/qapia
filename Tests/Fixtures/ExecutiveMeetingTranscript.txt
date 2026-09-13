@@ -1,0 +1,13 @@
+Bom dia, pessoal. Antes de começar, alguém conseguiu aproveitar o fim de semana? Eu fui ao parque e o tempo estava ótimo. Vocês estão me ouvindo bem? Perfeito, então vamos começar.
+
+O objetivo da reunião é decidir se o Portal Aurora está pronto para a expansão nacional e alinhar as condições necessárias para a liberação. A telemetria da última semana mostrou redução de 37% no tempo médio de processamento depois da atualização do índice principal. Apesar da melhora, o percentil 95 ainda ficou acima da meta durante dois picos de carga na região Sul. A equipe técnica explicou que esses picos coincidiram com a sincronização do cadastro legado, mas ressaltou que essa relação ainda é uma hipótese e precisa de confirmação.
+
+Nos testes de recuperação, o portal processou 84 mil solicitações sem perda de dados. A auditoria de segurança, porém, mantém três riscos médios abertos relacionados ao controle de acesso administrativo. Nenhum deles foi classificado como bloqueador imediato, mas o jurídico alertou que a evidência de mitigação precisa estar documentada antes da comunicação pública.
+
+Na frente comercial, oito clientes do piloto confirmaram interesse na expansão. Dois clientes pediram suporte durante a migração, e a equipe de atendimento informou que a capacidade atual cobre apenas cinco implantações simultâneas. Foi discutida a possibilidade de contratar apoio temporário, mas nenhuma contratação foi aprovada nesta reunião.
+
+Depois da avaliação conjunta, a diretoria decidiu manter a data de lançamento em 30 de setembro, condicionada ao encerramento dos três riscos de segurança e à validação do teste de carga final. Também ficou acordado que a primeira onda terá cinco clientes, em vez dos oito inicialmente considerados. A proposta de antecipar a comunicação para a imprensa não foi aprovada.
+
+Marina ficou responsável por enviar o relatório de mitigação ao jurídico até sexta-feira. Rafael vai executar o teste de carga final e publicar os resultados até 18 de setembro. Joana vai confirmar com os cinco clientes da primeira onda a janela de migração até segunda-feira. O responsável pela eventual contratação de apoio temporário não foi definido, e não foi estabelecido prazo para essa decisão.
+
+Para encerrar, a equipe confirmou que voltará a avaliar a liberação caso qualquer risco seja elevado para criticidade alta. Obrigado, pessoal. Depois me mandem a indicação daquele restaurante que vocês comentaram antes.

@@ -14,6 +14,8 @@ O aplicativo solicita somente `calendar.events.readonly`, além de `openid` e `e
 
 ## Compilar
 
+Na versão 1.2, o Client ID do produto já está configurado no pacote. O parâmetro abaixo é necessário somente para substituir a credencial em outro ambiente:
+
 ```zsh
 QAPIA_GOOGLE_CLIENT_ID="seu-client-id.apps.googleusercontent.com" bash Scripts/build-app-bundle.sh
 ```
@@ -26,7 +28,7 @@ QAPIA_GOOGLE_CLIENT_ID="seu-client-id.apps.googleusercontent.com" bash Scripts/p
 
 O Client ID identifica o aplicativo e não é um segredo. O script também registra automaticamente o esquema de retorno invertido exigido pelo Google. Nenhum Client Secret é necessário ou incluído no bundle.
 
-> O Client ID do tipo **Desktop app** não deve ser usado neste pacote: ele pode exigir um Client Secret durante a troca de token. Um segredo embutido em um `.app` seria extraível e, portanto, inseguro.
+> Use exclusivamente um Client ID do tipo **iOS**, vinculado ao Bundle ID `br.com.qapia.app`. Credenciais Web ou Desktop que exijam Client Secret não devem ser usadas neste pacote.
 
 ## Validação
 

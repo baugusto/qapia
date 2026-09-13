@@ -1,20 +1,25 @@
+import QapiaCore
 import SwiftUI
 
 struct MarkdownSummaryView: View {
     let markdown: String
 
     private var blocks: [SummaryMarkdownBlock] {
-        SummaryMarkdownParser.parse(markdown)
+        SummaryMarkdownParser.parse(
+            MarkdownPlainTextFormatter.presentationMarkdown(from: markdown)
+        )
     }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 12) {
+        // Meeting summaries contain a small, finite number of semantic
+        // blocks. A regular stack avoids LazyVStack placement invalidations
+        // while the enclosing document scroll view is being measured.
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(blocks) { block in
                 blockView(block)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .textSelection(.enabled)
     }
 
     @ViewBuilder
@@ -121,7 +126,7 @@ private struct InlineMarkdownText: View {
     }
 }
 
-private struct SummaryMarkdownBlock: Identifiable {
+struct SummaryMarkdownBlock: Identifiable {
     enum Kind {
         case heading(level: Int, text: String)
         case paragraph(String)
@@ -137,7 +142,7 @@ private struct SummaryMarkdownBlock: Identifiable {
     let isFirst: Bool
 }
 
-private enum SummaryMarkdownParser {
+enum SummaryMarkdownParser {
     static func parse(_ markdown: String) -> [SummaryMarkdownBlock] {
         let lines = markdown
             .replacingOccurrences(of: "\r\n", with: "\n")

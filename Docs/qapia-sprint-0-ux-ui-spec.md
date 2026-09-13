@@ -1,8 +1,8 @@
 # Qapia — Sprint 0 UX/UI Specification
 
-**Status:** Frames e componentes criados no Figma; visual aprovado; handoff SwiftUI em execução
-**Data:** 24/08/2026
-**Fonte visual:** [Qapia — Sprint 0 — UX UI](https://www.figma.com/design/6gtxk32ZmLR3Pz296Id74G)
+**Status:** Frames e componentes criados no Figma; visual aprovado; handoff SwiftUI em execução<br>
+**Data:** 24/08/2026<br>
+**Fonte visual:** [Qapia — Sprint 0 — UX UI](https://www.figma.com/design/6gtxk32ZmLR3Pz296Id74G)<br>
 **Implementação:** shell SwiftUI iniciado na Sprint 1; serviços reais permanecem fora do escopo
 
 ## 1. Objetivo

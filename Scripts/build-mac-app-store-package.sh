@@ -41,7 +41,11 @@ fi
 require_value "$application_identity" "QAPIA_APP_STORE_APPLICATION_IDENTITY"
 require_value "$installer_identity" "QAPIA_APP_STORE_INSTALLER_IDENTITY"
 require_value "$profile_path" "QAPIA_APP_STORE_PROVISIONING_PROFILE"
-require_value "${QAPIA_GOOGLE_CLIENT_ID:-}" "QAPIA_GOOGLE_CLIENT_ID"
+google_client_id="${QAPIA_GOOGLE_CLIENT_ID:-}"
+if [ -z "$google_client_id" ]; then
+    google_client_id=$(/usr/libexec/PlistBuddy -c 'Print :QAPiaGoogleClientID' "$info_plist" 2>/dev/null || true)
+fi
+require_value "$google_client_id" "QAPIA_GOOGLE_CLIENT_ID ou QAPiaGoogleClientID no Info.plist"
 
 if [ ! -f "$profile_path" ]; then
     echo "Provisioning profile não encontrado: $profile_path" >&2
@@ -53,8 +57,8 @@ if [ ! -f "$entitlements_path" ]; then
     exit 1
 fi
 
-case "$QAPIA_GOOGLE_CLIENT_ID" in
-    *.apps.googleusercontent.com) ;;
+case "$google_client_id" in
+    ?*.apps.googleusercontent.com) ;;
     *)
         echo "QAPIA_GOOGLE_CLIENT_ID inválido: use o Client ID completo terminado em .apps.googleusercontent.com." >&2
         exit 1
@@ -81,9 +85,9 @@ ditto "$framework_path" "$staging_path/Contents/Frameworks/whisper.framework"
 # metadata is not permitted inside an App Store or TestFlight app bundle.
 xattr -cr "$staging_path"
 
-google_client_prefix="${QAPIA_GOOGLE_CLIENT_ID%.apps.googleusercontent.com}"
+google_client_prefix="${google_client_id%.apps.googleusercontent.com}"
 google_url_scheme="com.googleusercontent.apps.$google_client_prefix"
-/usr/libexec/PlistBuddy -c "Set :QAPiaGoogleClientID $QAPIA_GOOGLE_CLIENT_ID" "$staging_path/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :QAPiaGoogleClientID $google_client_id" "$staging_path/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $google_url_scheme" "$staging_path/Contents/Info.plist"
 
 codesign --force --sign "$application_identity" --options runtime --timestamp=none \

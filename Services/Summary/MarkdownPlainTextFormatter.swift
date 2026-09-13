@@ -1,10 +1,27 @@
 import Foundation
 
 public enum MarkdownPlainTextFormatter {
-    public static func plainText(from markdown: String) -> String {
+    /// Repairs punctuation-only ASR artefacts for display and copy without
+    /// mutating the persisted Markdown or the summary-generation pipeline.
+    public static func presentationMarkdown(from markdown: String) -> String {
         let normalized = markdown
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
+        var isInsideCodeFence = false
+
+        return normalized.components(separatedBy: "\n").map { rawLine in
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                isInsideCodeFence.toggle()
+                return rawLine
+            }
+            guard !isInsideCodeFence else { return rawLine }
+            return cleanRedundantLeadingSpeechMarker(rawLine)
+        }.joined(separator: "\n")
+    }
+
+    public static func plainText(from markdown: String) -> String {
+        let normalized = presentationMarkdown(from: markdown)
 
         var output: [String] = []
         var isInsideCodeFence = false
@@ -125,5 +142,31 @@ public enum MarkdownPlainTextFormatter {
                 with: "$1",
                 options: .regularExpression
             )
+    }
+
+    private static func cleanRedundantLeadingSpeechMarker(_ value: String) -> String {
+        let unorderedPrefix = "^[ \\t]*[-+*][ \\t]+"
+        if value.range(of: unorderedPrefix, options: .regularExpression) != nil {
+            return value.replacingOccurrences(
+                of: "^([ \\t]*[-+*][ \\t]+)[-–—][ \\t]*(?=[\\p{Lu}\\\"“'‘«(])",
+                with: "$1",
+                options: .regularExpression
+            )
+        }
+
+        let orderedPrefix = "^[ \\t]*[0-9]+[.)][ \\t]+"
+        if value.range(of: orderedPrefix, options: .regularExpression) != nil {
+            return value.replacingOccurrences(
+                of: "^([ \\t]*[0-9]+[.)][ \\t]+)[-–—][ \\t]*(?=[\\p{Lu}\\\"“'‘«(])",
+                with: "$1",
+                options: .regularExpression
+            )
+        }
+
+        return value.replacingOccurrences(
+            of: "^([ \\t]*)[-–—][ \\t]*(?=[\\p{Lu}\\\"“'‘«(])",
+            with: "$1",
+            options: .regularExpression
+        )
     }
 }

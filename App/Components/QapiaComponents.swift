@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import QapiaCore
 import SwiftUI
 
@@ -342,42 +343,46 @@ struct WaveformView: View {
     let barCount: Int
     let height: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var samples: [CGFloat]
 
     init(level: Float, isActive: Bool, barCount: Int = 40, height: CGFloat = 84) {
         self.level = level
         self.isActive = isActive
         self.barCount = max(1, barCount)
         self.height = height
-        _samples = State(initialValue: Array(repeating: 0.035, count: max(1, barCount)))
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let spacing: CGFloat = 3
-            let width = max(2.5, (proxy.size.width - spacing * CGFloat(barCount - 1)) / CGFloat(barCount))
+        TimelineView(.animation(
+            minimumInterval: reduceMotion ? 0.1 : 1.0 / 30.0,
+            paused: !isActive
+        )) { timeline in
+            GeometryReader { proxy in
+                let spacing: CGFloat = 3
+                let width = max(2.5, (proxy.size.width - spacing * CGFloat(barCount - 1)) / CGFloat(barCount))
+                let phase = timeline.date.timeIntervalSinceReferenceDate
+                let visibleLevel = isActive ? level : 0
 
-            HStack(alignment: .center, spacing: spacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    Capsule(style: .continuous)
-                        .fill(QapiaColors.signalGradient)
-                        .frame(width: width, height: max(4, min(proxy.size.height, proxy.size.height * samples[index])))
+                HStack(alignment: .center, spacing: spacing) {
+                    ForEach(0..<barCount, id: \.self) { index in
+                        let barLevel = AudioLevelAnalyzer.animatedBarLevel(
+                            audioLevel: visibleLevel,
+                            phase: phase,
+                            index: index,
+                            count: barCount
+                        )
+                        Capsule(style: .continuous)
+                            .fill(QapiaColors.signalGradient)
+                            .frame(
+                                width: width,
+                                height: max(4, min(proxy.size.height, proxy.size.height * CGFloat(barLevel)))
+                            )
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: height)
         .opacity(isActive ? 1 : 0.38)
-        .onChange(of: level) { _, newLevel in
-            guard isActive else { return }
-            var updated = samples
-            if !updated.isEmpty { updated.removeFirst() }
-            let safeLevel = CGFloat(min(max(newLevel.isFinite ? newLevel : 0, 0), 1))
-            updated.append(0.05 + safeLevel * 0.9)
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.09)) {
-                samples = updated
-            }
-        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Nível de áudio")
         .accessibilityValue(accessibilityLevel)

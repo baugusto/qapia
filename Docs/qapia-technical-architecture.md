@@ -1,7 +1,7 @@
 # QAP.ia — Technical Architecture
 
-**Status:** Sprints 1 a 5 e Sprint 7 implementadas; pipeline local, persistência e nova camada visual integrados
-**Data:** 25/08/2026
+**Status:** Sprints 1 a 5 e Sprint 7 implementadas; pipeline local, persistência e nova camada visual integrados<br>
+**Data:** 25/08/2026<br>
 **Plataforma:** macOS 15+, Apple Silicon M1+
 
 ## 1. Objetivo arquitetural
@@ -14,7 +14,7 @@ Manter uma aplicação pequena, nativa e local-first, com separação suficiente
 |---|---|---|
 | Aplicação | Swift + SwiftUI | UI nativa e ciclo de vida |
 | Persistência | SwiftData | Meeting, segmentos e metadados |
-| Áudio do sistema | ScreenCaptureKit | Captura do áudio reproduzido pelo Mac |
+| Áudio do sistema | Core Audio Process Tap | Captura somente o áudio reproduzido pelo Mac, sem acesso à tela |
 | Microfone | AVFoundation | Captura do microfone |
 | Transcrição | Whisper local | Transcrição pós-reunião, sem serviço externo |
 | Resumo | Ollama local | Geração de Markdown com template |
@@ -186,7 +186,7 @@ Responsável por:
 
 Whisper não é iniciado em Pause e não há realtime, diarização, speaker identification, timestamps por sentença ou tradução automática na V1.
 
-O runtime oficial `whisper.cpp` é empacotado dentro do `QAP.ia.app`. Quando ainda não houver modelo no Mac, o QAP.ia baixa automaticamente o modelo multilíngue `small`, confere seu SHA-1 e o guarda em `Application Support/Qapia/Whisper/`. Não há dependência de Homebrew, FFmpeg ou comandos externos; somente o arquivo de modelo é obtido da internet e o áudio nunca é enviado.
+O runtime oficial `whisper.cpp` é empacotado dentro do `QAP.ia.app`. Quando ainda não houver um modelo válido no Mac, o QAP.ia baixa automaticamente o modelo multilíngue `Small`, confere seu SHA-1 e o guarda em `Application Support/Qapia/Whisper/ggml-small.bin`. A transcrição usa português fixo, timestamps internos para não perder trechos e decodificação greedy com cinco candidatos. Não usa prompt inicial, glossário nem substituição canônica; timestamps não são exibidos ao usuário. Não há dependência de Homebrew, FFmpeg ou comandos externos; somente o arquivo de modelo é obtido da internet e o áudio nunca é enviado.
 
 ## 9. Resumo
 
@@ -201,13 +201,11 @@ protocol SummaryProvider {
 }
 ```
 
-Implementação inicial: `OllamaSummaryProvider`.
+Implementação: `OnDeviceSummaryProvider`, apesar do nome histórico, usa exclusivamente o Ollama pela interface de loopback. `OllamaResourcePreparationCoordinator` verifica o runtime em toda abertura, instala a distribuição oficial assinada quando ausente, inicia o serviço e garante uma variante quantizada do Qwen 3.5 dimensionada pela memória unificada. A geração entrega a transcrição limpa diretamente ao modelo para uma síntese executiva, exige as seções exatas do template e valida estrutura, números, datas e nível de síntese sem impedir paráfrases legítimas. Uma primeira redação rejeitada recebe uma tentativa de reparo; se ela também falhar, o erro é exibido e a transcrição permanece preservada. O produto nunca entrega o fallback extrativo como se fosse uma ATA executiva.
 
-O modelo padrão da V1 é `qwen3.5:4b`, acessado exclusivamente em `http://127.0.0.1:11434/api/generate`, sem streaming e com thinking desativado. O endpoint é validado como loopback antes de qualquer requisição.
+O fallback normaliza as quebras de linha do Whisper, segmenta frases completas, descarta ruído conversacional, ranqueia relevância e cobertura e remove duplicatas. A quantidade de pontos cresce com o conteúdo da reunião. Cada fato renderizado é um trecho literal da transcrição; próximos passos exigem um compromisso explícito.
 
-O provider deve receber um system prompt, o template e o transcript. O system prompt deve instruir o modelo a utilizar apenas a transcrição, não inventar informações, indicar indisponibilidade de dados, respeitar o template e produzir Markdown.
-
-`SummaryService` resolve o template, chama o provider e persiste `summary.md`. A comunicação de `OllamaSummaryProvider` é exclusivamente local.
+`SummaryService` resolve o template, chama o provider e persiste `summary.md`. Todo o processamento é local.
 
 ## 10. Persistência e recuperação
 
@@ -247,9 +245,9 @@ Não adicionar backend, cloud sync, integrações com plataformas de reunião, a
 
 ## 14. Status de implementação
 
-O app integra captura segmentada, transcrição com `whisper.cpp`, geração de resumo com Ollama local e histórico persistente em SwiftData. O pipeline percorre `preparingAudio → transcribing → summarizing → completed`, grava `transcript.txt` e `summary.md`, atualiza os metadados a cada transição e preserva os artefatos em falhas ou reinicializações.
+O app integra captura segmentada, transcrição com `whisper.cpp`, geração de ata exclusivamente com Ollama/Qwen local e histórico persistente em SwiftData. O pipeline percorre `preparingAudio → transcribing → summarizing → completed`, grava `transcript.txt` e `summary.md`, atualiza os metadados a cada transição e preserva os artefatos em falhas ou reinicializações. A troca de template inicia uma nova geração automaticamente e descarta resultados assíncronos obsoletos.
 
-A camada visual `Signal Calm` usa tokens dinâmicos para claro/escuro, controles SwiftUI iconográficos e uma frequência alimentada por RMS normalizado dos buffers do ScreenCaptureKit. Somente valores `Float` limitados a 20 Hz chegam à MainActor; os buffers permanecem na fila de captura.
+A camada visual `Signal Calm` usa tokens dinâmicos para claro/escuro, controles SwiftUI iconográficos e uma frequência alimentada por RMS normalizado dos buffers de áudio. Somente valores `Float` limitados chegam à MainActor; os buffers permanecem na fila de captura em tempo real.
 
 ## 15. Catálogo local de templates
 

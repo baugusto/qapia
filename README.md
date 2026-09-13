@@ -29,20 +29,21 @@ The project explores how product design, native macOS capabilities and private a
 
 | Capability | Implementation |
 | --- | --- |
-| Audio capture | Microphone and system audio through ScreenCaptureKit |
+| Audio capture | System audio through Core Audio Process Tap and explicit microphone capture through AVFoundation |
 | Local transcription | Whisper runs on the Mac and processes ordered recording segments |
-| Private summaries | Apple Intelligence when available, with a deterministic local alternative |
+| Private summaries | Ollama and a memory matched Qwen 3.5 model run entirely on the Mac |
 | Meeting awareness | Automatic detection for Google Meet, Microsoft Teams and Zoom |
 | Calendar context | Read only Google Calendar integration using OAuth 2.0 and PKCE |
 | Searchable history | Meetings, participants, transcripts and summaries stored with SwiftData |
 | Summary templates | Built in and custom structures for different meeting types |
+| Resilient recording | Capture manifests preserve usable audio and recover interrupted sessions |
 | Background processing | Interrupted transcription and summary work resumes on the next launch |
 
 ## Product experience
 
 ![QAP.ia summary templates](AppStore/Screenshots/UPLOAD-APPLE/02-QAPia-modelos-1440x900.jpg)
 
-The interface follows a calm visual system designed for long work sessions. A compact floating indicator shows live audio activity while the main window stays out of the way.
+The interface follows a calm visual system designed for long work sessions. A compact floating indicator shows live audio activity while the main window stays out of the way. Completed summaries can be refined directly in a rich text editor and are saved locally.
 
 ## Privacy model
 
@@ -50,10 +51,11 @@ The interface follows a calm visual system designed for long work sessions. A co
 | --- | --- |
 | Meeting audio | Stored locally inside Application Support |
 | Transcripts | Generated and stored locally |
-| Summaries | Generated locally |
+| Summaries | Generated through a local Ollama runtime |
 | Calendar access | Read only access to upcoming events |
 | Google session | Protected by the macOS Keychain |
 | Whisper model | Downloaded once, verified and stored locally |
+| Qwen model | Selected for the available unified memory and stored locally |
 
 QAP.ia does not upload meeting audio or transcripts to an artificial intelligence service.
 
@@ -63,9 +65,9 @@ QAP.ia does not upload meeting audio or transcripts to an artificial intelligenc
 | --- | --- |
 | SwiftUI application | Navigation, recording controls, meeting history and settings |
 | View models | Product state and user interaction orchestration |
-| Capture services | ScreenCaptureKit sessions, microphone input and audio segmentation |
+| Capture services | Core Audio Process Tap, explicit microphone input, segmentation and recovery manifests |
 | Transcription services | Whisper model preparation, segment processing and transcript assembly |
-| Summary services | Template rendering and local summary generation |
+| Summary services | Ollama preparation, grounded prompting, validation and local generation |
 | Storage services | SwiftData persistence and meeting file management |
 | Calendar services | OAuth authentication, Keychain storage and event retrieval |
 
@@ -77,10 +79,10 @@ The full design is documented in [Technical Architecture](Docs/qapia-technical-a
 | --- | --- |
 | Language | Swift 6 |
 | Interface | SwiftUI |
-| Audio | ScreenCaptureKit and AVFoundation |
+| Audio | Core Audio, AudioToolbox and AVFoundation |
 | Persistence | SwiftData and local files |
 | Transcription | whisper.cpp |
-| Local intelligence | Foundation Models when available |
+| Local intelligence | Ollama and Qwen 3.5 |
 | Authentication | AuthenticationServices, OAuth 2.0 and PKCE |
 | Secure storage | macOS Keychain |
 
@@ -91,7 +93,7 @@ The full design is documented in [Technical Architecture](Docs/qapia-technical-a
 3. Xcode 16 or newer
 4. Microphone and screen recording permission
 
-macOS 26 or newer with Apple Intelligence enables the native language model summary provider. Earlier supported versions use the local structured summary provider.
+QAP.ia selects a quantized Qwen 3.5 variant according to the unified memory available on the Mac.
 
 ## Build and test
 
@@ -108,6 +110,12 @@ bash Scripts/build-app-bundle.sh
 ```
 
 The generated application is placed in the local Build directory, which is intentionally excluded from version control.
+
+## Local artificial intelligence
+
+QAP.ia does not send transcripts to an external artificial intelligence service. The standalone build prepares the official Ollama runtime when needed, validates the application identity and installs a compatible Qwen 3.5 model. Summary generation uses the exact sections of the selected template and validates structure, numbers and dates before saving the result.
+
+If local model preparation is interrupted, the recording and transcript remain available and setup can resume later.
 
 ## Google Calendar
 

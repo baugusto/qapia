@@ -1,9 +1,9 @@
 # QAP.ia — Product Definition
 
-**Status:** MVP ampliado — Sprint 9
-**Data:** 26/08/2026
-**Produto:** QAP.ia
-**Domínio:** qapia.com.br
+**Status:** MVP ampliado — Sprint 9<br>
+**Data:** 26/08/2026<br>
+**Produto:** QAP.ia<br>
+**Domínio:** qapia.com.br<br>
 **Tagline provisória:** Grave. Transcreva. Resuma.
 
 ## 1. Visão do produto

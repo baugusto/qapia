@@ -46,8 +46,20 @@ public final class LocalSummaryTemplateStore: SummaryTemplateStore {
     }
 
     private func mergeBuiltIns(into stored: [SummaryTemplate]) -> [SummaryTemplate] {
+        let legacyBuiltInIDs: Set<String> = ["general", "product-discovery", "refinement", "daily"]
         let builtInIDs = Set(SummaryTemplate.allCases.map(\.id))
+        let migratableStandardBaselines: Set<String> = [
+            SummaryTemplate.legacyStandardMeetingInstructions,
+            SummaryTemplate.previousStandardMeetingInstructions
+        ]
         var normalized = stored.compactMap { template -> SummaryTemplate? in
+            guard !legacyBuiltInIDs.contains(template.id) else { return nil }
+            if template.id == SummaryTemplate.standardMeeting.id,
+               template.displayName == SummaryTemplate.standardMeeting.displayName,
+               template.sections == SummaryTemplate.standardMeeting.sections,
+               migratableStandardBaselines.contains(template.instructions) {
+                return .standardMeeting
+            }
             let copy = SummaryTemplate(
                 id: template.id,
                 displayName: template.displayName,
@@ -61,6 +73,11 @@ public final class LocalSummaryTemplateStore: SummaryTemplateStore {
 
         for template in SummaryTemplate.allCases where !normalized.contains(where: { $0.id == template.id }) {
             normalized.append(template)
+        }
+        if let standardIndex = normalized.firstIndex(where: {
+            $0.id == SummaryTemplate.standardMeeting.id
+        }), standardIndex != normalized.startIndex {
+            normalized.insert(normalized.remove(at: standardIndex), at: normalized.startIndex)
         }
         return normalized
     }

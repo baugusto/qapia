@@ -7,6 +7,7 @@ public struct RecordingSegment: Identifiable, Hashable, Codable, Sendable {
     public let fileURL: URL
     public let recordedDuration: TimeInterval
     public let createdAt: Date
+    public var captureWarning: String?
 
     public init(
         id: UUID = UUID(),
@@ -14,7 +15,8 @@ public struct RecordingSegment: Identifiable, Hashable, Codable, Sendable {
         sequence: Int,
         fileURL: URL,
         recordedDuration: TimeInterval,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        captureWarning: String? = nil
     ) {
         self.id = id
         self.meetingID = meetingID
@@ -22,5 +24,6 @@ public struct RecordingSegment: Identifiable, Hashable, Codable, Sendable {
         self.fileURL = fileURL
         self.recordedDuration = recordedDuration
         self.createdAt = createdAt
+        self.captureWarning = captureWarning
     }
 }

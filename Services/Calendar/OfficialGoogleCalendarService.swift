@@ -48,7 +48,7 @@ public final class GoogleCalendarService: GoogleCalendarServing {
 
     public func connect() async throws -> GoogleCalendarAccount {
         guard let configuration,
-              let callbackScheme = Self.callbackScheme(for: configuration.clientID) else {
+              let callbackScheme = configuration.callbackScheme else {
             throw GoogleCalendarError.missingConfiguration
         }
 
@@ -242,12 +242,6 @@ public final class GoogleCalendarService: GoogleCalendarServing {
             throw GoogleCalendarError.invalidResponse
         }
         return email
-    }
-
-    private static func callbackScheme(for clientID: String) -> String? {
-        let suffix = ".apps.googleusercontent.com"
-        guard clientID.hasSuffix(suffix) else { return nil }
-        return "com.googleusercontent.apps.\(clientID.dropLast(suffix.count))"
     }
 
     private static func randomURLSafeString(byteCount: Int) -> String {

@@ -3,10 +3,12 @@ import Foundation
 public struct CapturedAudio: Sendable {
     public let fileURL: URL
     public let duration: TimeInterval
+    public let warning: String?
 
-    public init(fileURL: URL, duration: TimeInterval) {
+    public init(fileURL: URL, duration: TimeInterval, warning: String? = nil) {
         self.fileURL = fileURL
         self.duration = duration
+        self.warning = warning
     }
 }
 
@@ -40,7 +42,7 @@ public enum RecordingError: LocalizedError, Sendable, Equatable {
         case .microphonePermissionDenied:
             return "O acesso ao microfone foi negado. Autorize o QAP.ia em Ajustes do Sistema."
         case .systemAudioPermissionDenied:
-            return "A captura de áudio do sistema foi negada. Autorize a gravação de tela para o QAP.ia."
+            return "A captura de áudio do sistema foi negada. Autorize o áudio do sistema para o QAP.ia em Privacidade e Segurança."
         case .microphoneUnavailable:
             return "Nenhum microfone disponível foi encontrado."
         case .alreadyRecording:

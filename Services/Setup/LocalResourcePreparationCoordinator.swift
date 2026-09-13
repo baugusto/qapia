@@ -5,6 +5,8 @@ public enum ApplicationSetupPhase: Equatable, Sendable {
     case idle
     case checking
     case preparingTranscription
+    case preparingSummaryRuntime
+    case preparingSummaryModel(String)
     case ready
     case failed(String)
 
@@ -14,6 +16,10 @@ public enum ApplicationSetupPhase: Equatable, Sendable {
             return "Verificando recursos locais"
         case .preparingTranscription:
             return "Preparando transcrição local"
+        case .preparingSummaryRuntime:
+            return "Preparando inteligência local"
+        case .preparingSummaryModel:
+            return "Preparando modelo de resumo"
         case .ready:
             return "Recursos locais prontos"
         case .failed:
@@ -26,9 +32,13 @@ public enum ApplicationSetupPhase: Equatable, Sendable {
         case .idle, .checking:
             return "O QAP.ia está verificando os recursos locais necessários."
         case .preparingTranscription:
-            return "Baixando e validando o modelo de transcrição. Isso acontece somente na primeira utilização."
+            return "Baixando e validando o modelo de transcrição quando necessário."
+        case .preparingSummaryRuntime:
+            return "Verificando e instalando o mecanismo Ollama local quando necessário."
+        case let .preparingSummaryModel(model):
+            return "Baixando e validando \(model). O resumo continuará inteiramente neste Mac."
         case .ready:
-            return "A transcrição local está pronta. Os resumos permanecem neste Mac."
+            return "A transcrição e o modelo de resumo local estão prontos."
         case let .failed(message):
             return message
         }
@@ -52,16 +62,66 @@ public protocol LocalResourcePreparing: Sendable {
     func prepare() async throws
 }
 
+public struct LegacyTranscriptionVocabularyMigration: Sendable {
+    public enum Outcome: Equatable, Sendable {
+        case removed
+        case alreadyAbsent
+        case preservedNonFile
+        case failed
+    }
+
+    public static var defaultFileURL: URL {
+        FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("Qapia/Transcription/vocabulary.json")
+    }
+
+    private let fileURL: URL
+
+    public init(fileURL: URL = Self.defaultFileURL) {
+        self.fileURL = fileURL
+    }
+
+    @discardableResult
+    public func run() -> Outcome {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(
+            atPath: fileURL.path,
+            isDirectory: &isDirectory
+        ) else {
+            return .alreadyAbsent
+        }
+        guard !isDirectory.boolValue else { return .preservedNonFile }
+
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+            return .removed
+        } catch {
+            // Obsolete settings must never prevent audio/model preparation.
+            return .failed
+        }
+    }
+}
+
 public actor LocalResourcePreparationCoordinator: LocalResourcePreparing {
     public static let shared = LocalResourcePreparationCoordinator()
 
     private let whisperModelStore: WhisperModelStore
+    private let summaryResourcePreparer: any SummaryResourcePreparing
+    private let legacyVocabularyMigration: LegacyTranscriptionVocabularyMigration
     private var preparationTask: Task<Void, Error>?
 
     public init(
-        whisperModelStore: WhisperModelStore = .shared
+        whisperModelStore: WhisperModelStore = .shared,
+        summaryResourcePreparer: any SummaryResourcePreparing = OllamaResourcePreparationCoordinator.shared,
+        legacyVocabularyFileURL: URL = LegacyTranscriptionVocabularyMigration.defaultFileURL
     ) {
         self.whisperModelStore = whisperModelStore
+        self.summaryResourcePreparer = summaryResourcePreparer
+        self.legacyVocabularyMigration = LegacyTranscriptionVocabularyMigration(
+            fileURL: legacyVocabularyFileURL
+        )
     }
 
     public func prepare() async throws {
@@ -69,11 +129,19 @@ public actor LocalResourcePreparationCoordinator: LocalResourcePreparing {
             return try await preparationTask.value
         }
 
-        let task = Task { [whisperModelStore] in
+        let task = Task { [whisperModelStore, summaryResourcePreparer, legacyVocabularyMigration] in
             await ApplicationSetupStatus.shared.update(.checking)
             do {
+                legacyVocabularyMigration.run()
                 await ApplicationSetupStatus.shared.update(.preparingTranscription)
                 _ = try await whisperModelStore.preparedModelURL()
+
+                await ApplicationSetupStatus.shared.update(.preparingSummaryRuntime)
+                let model = OllamaModelPolicy.recommendedModel(
+                    physicalMemoryBytes: ProcessInfo.processInfo.physicalMemory
+                )
+                await ApplicationSetupStatus.shared.update(.preparingSummaryModel(model))
+                try await summaryResourcePreparer.prepare()
 
                 await ApplicationSetupStatus.shared.update(.ready)
             } catch {

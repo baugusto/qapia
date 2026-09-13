@@ -1,18 +1,15 @@
 # QAP.ia — Testing Checklist
 
-**Status:** validação automatizada de pré-reenvio concluída; validação manual do vídeo da App Review ainda pendente.
-**Data:** 31/08/2026
+**Status:** validação automatizada da versão pública concluída sem falhas.<br>
+**Data:** 12/09/2026<br>
 **Legenda:** `[ ]` não verificado · `[x]` verificado · `[—]` fora da sprint atual
 
-## 0. Pré-reenvio App Store Review
+## 0. Validação automatizada atual
 
-- [x] `swift test` executado em Mac físico Apple Silicon com macOS 26.5.2.
-- [x] 43 testes executados: 42 aprovados, 1 fixture opcional de áudio real ignorada e 0 falhas.
-- [x] Fluxo e informações solicitadas pela Guideline 2.1 documentados em `Docs/app-review-resubmission-2026-08-31.md`.
-- [ ] Vídeo completo gravado em usuário limpo, iniciando antes da abertura do app.
-- [ ] Vídeo anexado à resposta e às informações de revisão.
-- [ ] App Review Notes coladas e revisadas no App Store Connect.
-- [ ] Mesmo build 1.0 (2) reenviado após a correção de metadados.
+- [x] `swift test` executado em Mac físico Apple Silicon.
+- [x] 226 testes executados, com 217 aprovados, 9 ignorados e 0 falhas.
+- [x] A compilação incluiu a captura Core Audio Process Tap, recuperação de gravações, integração local com Ollama, editor de resumo e suíte completa de regressão.
+- [x] Os testes ignorados dependem de hardware Bluetooth ativo, runtime local ou arquivos reais de áudio e transcrição.
 
 ## 1. Sprint 0 — QA visual e de especificação
 
@@ -56,7 +53,7 @@
 - [x] Copy mock escreve o resumo no clipboard via protocolo injetável.
 - [x] Nenhum serviço real de áudio, Whisper ou Ollama foi acoplado.
 
-O ambiente atual possui Swift/Xcode. A suíte automatizada foi executada em 31/08/2026; a validação manual do fluxo gravado para a App Review permanece no gate de reenvio acima.
+O ambiente atual possui Swift e Xcode. A suíte automatizada foi executada em 12/09/2026. Validações que dependem de hardware específico, runtime local ou arquivos reais permanecem separadas dos testes determinísticos.
 
 ## 3. Sprint 2 — Audio Capture
 

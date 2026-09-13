@@ -29,9 +29,9 @@ struct RootView: View {
                 if !isPresented { viewModel.dismissRecordingError() }
             }
         )) {
-            if viewModel.shouldOpenScreenRecordingSettings {
+            if viewModel.shouldOpenSystemAudioSettings {
                 Button("Abrir Ajustes") {
-                    openScreenRecordingSettings()
+                    openSystemAudioSettings()
                     viewModel.dismissRecordingError()
                 }
             }
@@ -43,8 +43,8 @@ struct RootView: View {
         }
     }
 
-    private func openScreenRecordingSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
+    private func openSystemAudioSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture") else {
             return
         }
         NSWorkspace.shared.open(url)

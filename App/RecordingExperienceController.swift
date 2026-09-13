@@ -21,7 +21,9 @@ final class RecordingExperienceController: NSObject, NSWindowDelegate {
                 activeMeetingID = viewModel.selectedMeetingID
                 attachMainWindowIfNeeded()
                 showPanel()
-                presenceMonitor.start(viewModel: viewModel)
+                if let activeMeetingID {
+                    presenceMonitor.start(viewModel: viewModel, meetingID: activeMeetingID)
+                }
                 mainWindow?.miniaturize(nil)
             } else if panel == nil {
                 showPanel()

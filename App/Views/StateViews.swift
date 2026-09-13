@@ -35,16 +35,17 @@ struct EmptyStateView: View {
 
                         TemplateConfigurationView(
                             templates: viewModel.templates,
-                            selection: $viewModel.selectedTemplate
+                            selection: $viewModel.newMeetingTemplate
                         )
 
                         QapiaActionButton(
-                            title: "Nova gravação",
+                            title: viewModel.isStartingRecording ? "Preparando áudio…" : "Nova gravação",
                             kind: .primary,
                             systemImage: "waveform"
                         ) {
                             viewModel.startRecording()
                         }
+                        .disabled(viewModel.isStartingRecording)
                     }
                     .frame(maxWidth: 430, alignment: .leading)
                 }
@@ -444,7 +445,7 @@ struct ProcessingStateView: View {
     @ObservedObject var viewModel: MeetingViewModel
 
     private var isSummarizing: Bool {
-        viewModel.currentMeeting.state == .summarizing
+        viewModel.isCurrentMeetingSummarizing
     }
 
     private var processingTitle: String {
@@ -516,6 +517,29 @@ struct MeetingDetailView: View {
 
     private var meeting: Meeting { viewModel.currentMeeting }
 
+    private var availableTemplates: [SummaryTemplate] {
+        var options = viewModel.templates
+        if let index = options.firstIndex(where: { $0.id == viewModel.selectedTemplate.id }) {
+            if selectedTemplateIsHistorical {
+                options[index] = viewModel.selectedTemplate
+            }
+            return options
+        }
+        return [viewModel.selectedTemplate] + options
+    }
+
+    private var selectedTemplateIsHistorical: Bool {
+        guard let current = viewModel.templates.first(where: {
+            $0.id == viewModel.selectedTemplate.id
+        }) else {
+            return true
+        }
+        return current.displayName != viewModel.selectedTemplate.displayName ||
+            current.instructions != viewModel.selectedTemplate.instructions ||
+            current.sections != viewModel.selectedTemplate.sections ||
+            current.isBuiltIn != viewModel.selectedTemplate.isBuiltIn
+    }
+
     private var status: (title: String, color: Color) {
         switch meeting.state {
         case .transcribed: ("Transcrição pronta", QapiaColors.accent)
@@ -526,7 +550,7 @@ struct MeetingDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            PageHeader(title: meeting.title, subtitle: "\(meeting.dateLabel) · \(meeting.durationText)") {
+            PageHeader(title: meeting.title, subtitle: "Gravada em \(meeting.recordingMetadataText)") {
                 HStack(spacing: 9) {
                     QapiaActionButton(
                         title: "Editar detalhes",
@@ -564,9 +588,39 @@ struct MeetingDetailView: View {
                 Spacer()
 
                 TemplateConfigurationView(
-                    templates: viewModel.templates,
-                    selection: $viewModel.selectedTemplate
+                    templates: availableTemplates,
+                    selection: Binding(
+                        get: { viewModel.selectedTemplate },
+                        set: { template in
+                            viewModel.selectSummaryTemplate(template)
+                        }
+                    )
                 )
+
+                Button(action: viewModel.retrySummary) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(QapiaColors.accent)
+                        .frame(width: 36, height: 36)
+                        .background(QapiaColors.surfaceHover)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(QapiaColors.divider.opacity(0.9), lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(meeting.transcript.isEmpty || viewModel.isCurrentMeetingSummarizing)
+                .opacity(meeting.transcript.isEmpty || viewModel.isCurrentMeetingSummarizing ? 0.45 : 1)
+                .help("Regenerar o resumo com o template selecionado")
+                .accessibilityLabel("Regenerar resumo")
+
+                if selectedTemplateIsHistorical {
+                    Label("Histórico", systemImage: "clock.arrow.circlepath")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .help("Esta reunião preserva a versão do template usada quando foi gravada.")
+                }
             }
 
             if meeting.hasUnavailableAudio {
@@ -578,6 +632,16 @@ struct MeetingDetailView: View {
                 )
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(QapiaColors.paused)
+            }
+
+            if !meeting.captureWarnings.isEmpty {
+                Label(
+                    meeting.captureWarnings.joined(separator: " "),
+                    systemImage: "waveform.badge.exclamationmark"
+                )
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(QapiaColors.paused)
+                .textSelection(.enabled)
             }
 
             SurfaceCard {
@@ -603,10 +667,10 @@ struct MeetingDetailView: View {
 
                     Divider()
 
-                    ScrollView {
-                        if viewModel.detailTab == .summary, !meeting.summary.isEmpty {
-                            MarkdownSummaryView(markdown: meeting.summary)
-                        } else {
+                    if viewModel.detailTab == .summary, !meeting.summary.isEmpty {
+                        EditableSummaryView(viewModel: viewModel)
+                    } else {
+                        ScrollView {
                             Text(contentText)
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
@@ -614,19 +678,32 @@ struct MeetingDetailView: View {
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
+                        .frame(minHeight: 190, idealHeight: 440, maxHeight: 540)
+                        .scrollBounceBehavior(.basedOnSize)
                     }
-                    .frame(minHeight: 190)
 
-                    if !meeting.transcript.isEmpty {
+                    if (viewModel.detailTab == .transcript && !meeting.recordingSegments.isEmpty)
+                        || (viewModel.detailTab == .summary && !meeting.transcript.isEmpty) {
                         Divider()
                         HStack {
                             Spacer()
-                            QapiaActionButton(
-                                title: meeting.summary.isEmpty ? "Gerar resumo" : "Gerar novamente",
-                                kind: .primary,
-                                systemImage: "sparkles",
-                                action: viewModel.retrySummary
-                            )
+                            if viewModel.detailTab == .transcript {
+                                QapiaActionButton(
+                                    title: meeting.transcript.isEmpty
+                                        ? "Gerar transcrição"
+                                        : "Transcrever novamente",
+                                    kind: .secondary,
+                                    systemImage: "waveform",
+                                    action: viewModel.retryTranscription
+                                )
+                            } else if meeting.summary.isEmpty || meeting.state == .failed {
+                                QapiaActionButton(
+                                    title: "Tentar gerar resumo",
+                                    kind: .primary,
+                                    systemImage: "sparkles",
+                                    action: viewModel.retrySummary
+                                )
+                            }
                         }
                     }
                 }
@@ -641,6 +718,108 @@ struct MeetingDetailView: View {
             return meeting.summary.isEmpty ? "O resumo ainda não está disponível." : meeting.summary
         }
         return meeting.transcript.isEmpty ? "A transcrição ainda não está disponível." : meeting.transcript
+    }
+}
+
+private struct EditableSummaryView: View {
+    @ObservedObject var viewModel: MeetingViewModel
+    @State private var isEditing = false
+    @StateObject private var richTextController = SummaryRichTextController()
+    @State private var richTextHeight: CGFloat = 190
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if isEditing {
+                SummaryFormattingToolbar(controller: richTextController) {
+                    isEditing = false
+                }
+                GeometryReader { geometry in
+                    RichTextSummaryEditor(
+                        markdown: Binding(
+                            get: { viewModel.summaryDraft },
+                            set: { newValue in viewModel.updateSummary(newValue) }
+                        ),
+                        controller: richTextController,
+                        onFocusChange: { focused in
+                            guard !focused else { return }
+                            DispatchQueue.main.async { isEditing = false }
+                        },
+                        layoutWidth: geometry.size.width,
+                        contentHeight: $richTextHeight
+                    )
+                    .frame(width: geometry.size.width, height: richTextHeight)
+                }
+                .frame(height: richTextHeight)
+            } else {
+                MarkdownSummaryView(markdown: viewModel.summaryDraft)
+                    .contentShape(Rectangle())
+                    .onTapGesture { isEditing = true }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Clique para editar. As alterações são salvas automaticamente.")
+            }
+
+            HStack(spacing: 6) {
+                Image(systemName: viewModel.summaryAutosaveMessage == "Salvando…" ? "arrow.triangle.2.circlepath" : "checkmark.circle")
+                Text(viewModel.summaryAutosaveMessage ?? "Clique no texto para editar · salvamento automático")
+            }
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct SummaryFormattingToolbar: View {
+    let controller: SummaryRichTextController
+    let finish: () -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Menu {
+                Button("Texto normal", action: controller.setParagraphStyle)
+                Button("Título", action: controller.setHeadingStyle)
+            } label: {
+                Label("Estilo", systemImage: "textformat.size")
+                    .font(.system(size: 11, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .frame(height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+
+            Divider().frame(height: 18)
+            formattingButton("Negrito", systemImage: "bold", action: controller.toggleBold)
+            formattingButton("Itálico", systemImage: "italic", action: controller.toggleItalic)
+            formattingButton("Lista com marcadores", systemImage: "list.bullet", action: controller.toggleBulletedList)
+            formattingButton("Lista numerada", systemImage: "list.number", action: controller.toggleNumberedList)
+
+            Spacer()
+
+            Button("Concluir", action: finish)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(QapiaColors.accent)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
+        }
+        .padding(.horizontal, 6)
+        .frame(height: 34)
+        .background(QapiaColors.surfaceHover)
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+
+    private func formattingButton(
+        _ title: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 27, height: 27)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 

@@ -36,15 +36,25 @@ public enum GoogleCalendarError: LocalizedError, Equatable {
 }
 
 public struct GoogleOAuthConfiguration: Sendable {
+    private static let clientIDSuffix = ".apps.googleusercontent.com"
+
     public let clientID: String
 
     public init(clientID: String) {
         self.clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    public var callbackScheme: String? {
+        guard clientID.hasSuffix(Self.clientIDSuffix) else { return nil }
+        let prefix = clientID.dropLast(Self.clientIDSuffix.count)
+        guard !prefix.isEmpty else { return nil }
+        return "com.googleusercontent.apps.\(prefix)"
+    }
+
     public static func bundled(bundle: Bundle = .main) -> GoogleOAuthConfiguration? {
         let clientID = (bundle.object(forInfoDictionaryKey: "QAPiaGoogleClientID") as? String) ?? ""
-        guard !clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return GoogleOAuthConfiguration(clientID: clientID)
+        let configuration = GoogleOAuthConfiguration(clientID: clientID)
+        guard configuration.callbackScheme != nil else { return nil }
+        return configuration
     }
 }

@@ -1,6 +1,6 @@
 # QAP.ia — Decision Log
 
-**Data de referência:** 26/08/2026
+**Data de referência:** 26/08/2026<br>
 **Regra:** decisões aprovadas não devem ser reabertas sem solicitação explícita.
 
 ## Decisões aprovadas
@@ -12,7 +12,7 @@
 | D-003 | A V1 será exclusivamente macOS 15+ em Apple Silicon M1+ | Reduz superfície técnica e permite experiência nativa | Aprovada |
 | D-004 | A aplicação será Swift + SwiftUI | Stack nativa obrigatória para a V1 | Aprovada |
 | D-005 | A persistência será local com SwiftData | Histórico local sem backend ou cloud sync | Aprovada |
-| D-006 | A captura usará ScreenCaptureKit + AVFoundation | Cobre áudio do sistema e microfone | Aprovada |
+| D-006 | A captura usará Core Audio Process Tap + AVFoundation | Cobre áudio do sistema e microfone sem solicitar acesso à tela | Substituída em 2026-09-03 |
 | D-007 | Whisper será executado localmente e somente após Stop | Privacidade e previsibilidade; Pause nunca dispara transcrição | Aprovada |
 | D-008 | Ollama local será o provider inicial de resumo | Evita API externa paga e mantém conteúdo local | Aprovada |
 | D-009 | O resumo será abstraído por `SummaryProvider` | Permite providers futuros sem acoplamento da UI | Aprovada |
@@ -29,7 +29,7 @@
 | D-020 | A Sprint 8 adicionará gestão de templates em Configurações | Usuário poderá modificar os modelos atuais e criar novas estruturas de resumo | Implementada e em validação |
 | D-021 | A identidade visual da Sprint 7 será `Signal Calm` | Neutros mantêm foco; azul-violeta e ciano representam inteligência e sinal; coral fica reservado para captura e erro | Aprovada na implementação |
 | D-022 | Templates serão persistidos em JSON local e reuniões guardarão um snapshot do template usado | Evita migração do histórico SwiftData e impede que edições futuras alterem a estrutura de reuniões anteriores | Implementada na Sprint 8 |
-| D-023 | Google Calendar usará OAuth 2.0 com PKCE pela sessão protegida do macOS, Client ID do tipo iOS e escopo somente leitura | O app nunca recebe senha nem embute Client Secret; tokens ficam no Chaveiro | Implementada; aguarda Client ID iOS |
+| D-023 | Google Calendar usará OAuth 2.0 com PKCE pela sessão protegida do macOS, Client ID do tipo iOS e escopo somente leitura | O app nunca recebe senha nem embute Client Secret; tokens ficam no Chaveiro | Configurada no projeto parceria360 para a versão 1.2.1 |
 | D-024 | Participantes iniciais vêm dos convidados do calendário e podem ser corrigidos manualmente | Diarização por voz não é suficientemente confiável nem necessária para fechar o MVP | Implementada |
 | D-025 | A busca local indexa metadados, data/hora, transcrição e resumo sem backend | Preserva a arquitetura local-first | Implementada |
 | D-026 | O instalador será DMG, com Developer ID e notarização para distribuição pública | Permite instalação sem Xcode e atende ao Gatekeeper | Script implementado; credenciais Apple pendentes |
@@ -57,6 +57,32 @@ As Sprints 2 a 4 integraram captura M4A segmentada, transcrição automática co
 ### O-005 — Histórico persistente
 
 A Sprint 5 substituiu o histórico temporário por SwiftData. Meeting, segmentos, paths, durações, template, estado, transcrição e resumo são salvos localmente. O aplicativo recupera processamentos interrompidos como falha, preserva arquivos já finalizados e sinaliza paths ausentes sem excluir dados.
+
+### O-006 — Marco de qualidade aprovado na versão 1.1.10
+
+Em 04/09/2026, o responsável pelo produto aprovou a transcrição e o resumo da versão 1.1.10 como excelentes. O Whisper Small, o perfil de transcrição e as regras de profundidade e fidelidade do resumo passam a ser a linha de base obrigatória de regressão. Ajustes posteriores no pipeline de captura de áudio não podem alterar esse comportamento sem uma solicitação explícita.
+
+### O-007 — Preservação da qualidade da saída Bluetooth
+
+Em 04/09/2026, a versão 1.1.11 passou a evitar a abertura do microfone do próprio headset quando entrada e saída padrão formam uma rota Bluetooth bidirecional. O QAP.ia escolhe privadamente o microfone interno ou mantém um microfone cabeado/USB já selecionado, sem modificar os dispositivos padrão do macOS. A captura é gravada na taxa nativa e convertida somente na finalização; Whisper Small e o pipeline de resumo permanecem inalterados conforme O-006.
+
+A validação no QCY H3 Pro confirmou duas gravações consecutivas, sem nova solicitação de permissão, com seleção explícita do MacBook Pro Microphone em 0,296 s e 0,105 s. Durante e após as capturas, a saída do QCY permaneceu a 44,1 kHz, a entrada padrão global continuou sendo o QCY a 16 kHz e os dois M4A foram finalizados e decodificados até o fim.
+
+### O-008 — Congelamento do pipeline aprovado
+
+Em 05/09/2026, o responsável pelo produto confirmou que a gravação — inclusive com Bluetooth —, a transcrição e a qualidade do resumo estão funcionando corretamente. Captura, roteamento de áudio, Whisper Small e geração semântica do resumo ficam congelados como baseline aprovado e não devem ser alterados sem nova solicitação explícita.
+
+A versão 1.1.12 contém exclusivamente uma correção de apresentação: remove o hífen de diálogo que aparecia dentro de itens já renderizados com bullet, inclusive em resumos existentes e no texto copiado. O Markdown persistido e os pipelines aprovados permanecem inalterados.
+
+### O-009 — Estabilidade do layout de atas extensas
+
+Em 11/09/2026, um stackshot da versão 1.1.12 registrou 59 segundos de interface sem resposta durante a apresentação de uma ata extensa. A thread principal estava presa em medições recorrentes de `LazyVStack`, `GeometryReader` e seleção nativa de texto dentro de rolagens aninhadas.
+
+A versão 1.1.13 limita explicitamente o viewport do documento, usa uma pilha estável para os blocos Markdown e remove a sobreposição redundante de seleção no modo de leitura — o botão **Copiar** e a edição por clique continuam disponíveis. Gravação, áudio, Whisper, transcrição, geração de resumo, persistência e templates não foram alterados.
+
+### O-010 — Abertura da versão 1.2 e agenda
+
+Em 11/09/2026, gravação, transcrição, resumo e editor rich text foram aprovados e congelados como baseline da versão 1.1.18. A versão 1.2 passa a ter foco exclusivo na integração com agenda. O Client ID OAuth iOS do produto e seu esquema de retorno invertido ficam incorporados ao bundle, mantendo acesso somente leitura e tokens no Chaveiro do macOS.
 
 ## Pontos a decidir antes das sprints técnicas
 

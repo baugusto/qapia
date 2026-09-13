@@ -9,6 +9,7 @@ final class StoredRecordingSegment {
     var filePath: String
     var recordedDuration: TimeInterval
     var createdAt: Date
+    var captureWarning: String?
 
     init(segment: RecordingSegment) {
         id = segment.id
@@ -17,6 +18,7 @@ final class StoredRecordingSegment {
         filePath = segment.fileURL.path
         recordedDuration = segment.recordedDuration
         createdAt = segment.createdAt
+        captureWarning = segment.captureWarning
     }
 
     var value: RecordingSegment {
@@ -26,7 +28,8 @@ final class StoredRecordingSegment {
             sequence: sequence,
             fileURL: URL(fileURLWithPath: filePath),
             recordedDuration: recordedDuration,
-            createdAt: createdAt
+            createdAt: createdAt,
+            captureWarning: captureWarning
         )
     }
 }
@@ -166,20 +169,9 @@ public final class SwiftDataMeetingStore: MeetingStore {
 
     public func loadMeetings() throws -> [Meeting] {
         let storedMeetings = try context.fetch(FetchDescriptor<StoredMeeting>())
-        var meetings = storedMeetings.map(\.value)
-        var recoveredInterruptedMeeting = false
-
-        for index in meetings.indices where meetings[index].state.isInterruptedRecordingState {
-            meetings[index].state = .failed
-            try upsert(meetings[index])
-            recoveredInterruptedMeeting = true
-        }
-
-        if recoveredInterruptedMeeting {
-            try context.save()
-        }
-
-        return meetings.sorted { $0.createdAt > $1.createdAt }
+        return storedMeetings
+            .map(\.value)
+            .sorted { $0.createdAt > $1.createdAt }
     }
 
     public func save(_ meeting: Meeting) throws {
@@ -210,16 +202,5 @@ public final class SwiftDataMeetingStore: MeetingStore {
         )[0]
         .appendingPathComponent("Qapia/Persistence", isDirectory: true)
         .appendingPathComponent("QAPia.store", isDirectory: false)
-    }
-}
-
-private extension MeetingState {
-    var isInterruptedRecordingState: Bool {
-        switch self {
-        case .recording, .paused:
-            return true
-        case .idle, .preparingAudio, .transcribing, .transcribed, .summarizing, .completed, .failed:
-            return false
-        }
     }
 }
