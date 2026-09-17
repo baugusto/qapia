@@ -17,7 +17,7 @@ let package = Package(
             dependencies: ["WhisperCpp", "CoreAudioTapSupport"],
             path: ".",
             exclude: [
-                "App", "AppStore", "Assets", "Docs", "Scripts", "Tests", "Package.swift", "README.md", "LICENSE",
+                "App", "AppStore", "Assets", "Build", "Docs", "Scripts", "Tests", "CHANGELOG.md", "Package.swift", "README.md", "LICENSE",
                 "Services/AudioTapSupport"
             ]
         ),

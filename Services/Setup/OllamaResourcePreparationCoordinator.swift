@@ -4,6 +4,53 @@ public protocol SummaryResourcePreparing: Sendable {
     func prepare() async throws
 }
 
+public enum OllamaModelChoice: String, CaseIterable, Identifiable, Sendable {
+    case fourB = "4b"
+    case nineB = "9b"
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .fourB: "Qwen 3.5 · 4B"
+        case .nineB: "Qwen 3.5 · 9B"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .fourB: "Mais leve e rápido; recomendado para Macs com menos memória."
+        case .nineB: "Maior qualidade; recomendado para Macs com mais memória disponível."
+        }
+    }
+
+    public var modelName: String {
+        switch self {
+        case .fourB: "qwen3.5:4b-q4_K_M"
+        case .nineB: "qwen3.5:9b-q4_K_M"
+        }
+    }
+}
+
+public enum OllamaModelPreference {
+    public static let defaultsKey = "qapia.summary.ollamaModel"
+
+    public static func selectedChoice(defaults: UserDefaults = .standard) -> OllamaModelChoice {
+        guard let stored = defaults.string(forKey: defaultsKey),
+              let choice = OllamaModelChoice(rawValue: stored) else {
+            return .fourB
+        }
+        return choice
+    }
+
+    public static func select(
+        _ choice: OllamaModelChoice,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(choice.rawValue, forKey: defaultsKey)
+    }
+}
+
 public enum OllamaModelPolicy {
     private static let gibibyte: UInt64 = 1_073_741_824
 
@@ -111,25 +158,23 @@ public actor OllamaResourcePreparationCoordinator: SummaryResourcePreparing {
 
     private let client: OllamaClient
     private let runtimeInstaller: OllamaRuntimeInstaller
-    private let physicalMemoryBytes: UInt64
     private var preparationTask: Task<Void, Error>?
     private var ownedServerProcess: Process?
 
     init(
         client: OllamaClient = .init(),
-        runtimeInstaller: OllamaRuntimeInstaller = .init(),
-        physicalMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory
+        runtimeInstaller: OllamaRuntimeInstaller = .init()
     ) {
         self.client = client
         self.runtimeInstaller = runtimeInstaller
-        self.physicalMemoryBytes = physicalMemoryBytes
     }
 
     public func prepare() async throws {
         if let preparationTask {
             return try await preparationTask.value
         }
-        let task = Task { [client, runtimeInstaller, physicalMemoryBytes] in
+        let selectedModel = OllamaModelPreference.selectedChoice().modelName
+        let task = Task { [client, runtimeInstaller] in
             if !(await client.isServiceAvailable()) {
                 let executableURL = try await runtimeInstaller.preparedExecutableURL()
                 let process = try runtimeInstaller.startServer(executableURL: executableURL)
@@ -137,15 +182,12 @@ public actor OllamaResourcePreparationCoordinator: SummaryResourcePreparing {
                 try await client.waitUntilAvailable()
             }
 
-            let recommendedModel = OllamaModelPolicy.recommendedModel(
-                physicalMemoryBytes: physicalMemoryBytes
-            )
             let installed = try await client.installedModelNames()
             guard !OllamaModelPolicy.isRecommendedModelInstalled(
                 installed,
-                recommendedModel: recommendedModel
+                recommendedModel: selectedModel
             ) else { return }
-            try await client.pullModel(recommendedModel)
+            try await client.pullModel(selectedModel)
         }
         preparationTask = task
         defer { preparationTask = nil }

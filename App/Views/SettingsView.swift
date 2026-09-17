@@ -18,6 +18,8 @@ struct SettingsView: View {
 
             calendarCard
 
+            prerequisitesCard
+
             SurfaceCard {
                 HStack(alignment: .top, spacing: 24) {
                     templateList
@@ -32,6 +34,78 @@ struct SettingsView: View {
             }
 
             PrivacyNote(text: "Templates e preferências permanecem somente neste Mac")
+        }
+    }
+
+    private var prerequisitesCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 15) {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Diagnóstico do aplicativo")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Itens necessários para gravar, transcrever e gerar resumos localmente.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    QapiaActionButton(
+                        title: "Verificar novamente",
+                        kind: .secondary,
+                        systemImage: "arrow.clockwise",
+                        action: viewModel.refreshPrerequisiteDiagnostics
+                    )
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Modelo para os resumos")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(viewModel.selectedOllamaModel.detail)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Picker(
+                        "Modelo para os resumos",
+                        selection: Binding(
+                            get: { viewModel.selectedOllamaModel },
+                            set: { choice in
+                                viewModel.selectOllamaModel(choice)
+                            }
+                        )
+                    ) {
+                        ForEach(OllamaModelChoice.allCases) { choice in
+                            Text(choice.displayName).tag(choice)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 170)
+                }
+                .padding(11)
+                .background(QapiaColors.surfaceHover)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                Divider()
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 14),
+                        GridItem(.flexible(), spacing: 14)
+                    ],
+                    alignment: .leading,
+                    spacing: 12
+                ) {
+                    ForEach(viewModel.prerequisiteItems) { item in
+                        PrerequisiteRow(item: item)
+                    }
+                }
+            }
         }
     }
 
@@ -198,7 +272,7 @@ struct SettingsView: View {
 
             TemplateEditorField(
                 title: "Estrutura",
-                help: "Uma seção por linha, na ordem em que deve aparecer"
+                help: "Use - ou Tab no início da linha para criar um subtópico"
             ) {
                 TextEditor(text: $viewModel.templateSectionsDraft)
                     .font(.system(size: 12, design: .monospaced))
@@ -261,6 +335,51 @@ struct SettingsView: View {
                 : "Este template foi criado por você e pode ser editado ou excluído."
         }
         return "Defina um nome, as instruções e a estrutura do resumo."
+    }
+}
+
+private struct PrerequisiteRow: View {
+    let item: LocalPrerequisiteItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(indicatorColor)
+                .frame(width: 9, height: 9)
+                .padding(.top, 4)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(item.detail)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 4)
+
+            if item.health == .checking {
+                ProgressView()
+                    .controlSize(.mini)
+            }
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+        .background(QapiaColors.surfaceHover)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var indicatorColor: Color {
+        switch item.health {
+        case .ready:
+            return QapiaColors.success
+        case .checking, .attention:
+            return QapiaColors.paused
+        case .unavailable:
+            return QapiaColors.recording
+        }
     }
 }
 

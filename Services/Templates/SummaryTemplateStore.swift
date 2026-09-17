@@ -65,6 +65,7 @@ public final class LocalSummaryTemplateStore: SummaryTemplateStore {
                 displayName: template.displayName,
                 instructions: template.instructions,
                 sections: template.sections,
+                sectionSubtopics: template.sectionSubtopics,
                 customStructure: template.customStructure,
                 isBuiltIn: builtInIDs.contains(template.id)
             )

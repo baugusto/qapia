@@ -242,7 +242,7 @@ final class QapiaTests: XCTestCase {
         let urlTypes = try XCTUnwrap(plist["CFBundleURLTypes"] as? [[String: Any]])
         let schemes = try XCTUnwrap(urlTypes.first?["CFBundleURLSchemes"] as? [String])
 
-        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "1.2.1")
+        XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, "1.2.3")
         XCTAssertEqual(clientID, "666747177192-ndh5joi0an6ohq7m9q2qbnngjbkhtcds.apps.googleusercontent.com")
         XCTAssertEqual(
             schemes.first,
@@ -2193,6 +2193,30 @@ final class QapiaTests: XCTestCase {
         XCTAssertEqual(templateStore.templates.count, SummaryTemplate.allCases.count + 1)
     }
 
+    func testTemplateEditorTreatsDashOrTabLinesAsSubtopics() {
+        let templateStore = MemorySummaryTemplateStore()
+        let viewModel = MeetingViewModel(
+            templateStore: templateStore,
+            clipboard: MemoryClipboardService()
+        )
+
+        viewModel.beginCreatingTemplate()
+        viewModel.templateNameDraft = "Revisão executiva"
+        viewModel.templateInstructionsDraft = "Organize o contexto e os encaminhamentos."
+        viewModel.templateSectionsDraft = "Contexto\n- Cenário atual\n\tRiscos\nEncaminhamentos"
+        viewModel.saveTemplateDraft()
+
+        XCTAssertEqual(viewModel.editingTemplate?.sections, ["Contexto", "Encaminhamentos"])
+        XCTAssertEqual(
+            viewModel.editingTemplate?.subtopics(for: "Contexto"),
+            ["Cenário atual", "Riscos"]
+        )
+        XCTAssertEqual(
+            viewModel.templateSectionsDraft,
+            "Contexto\n\t- Cenário atual\n\t- Riscos\nEncaminhamentos"
+        )
+    }
+
     func testTemplateEditorRejectsInvalidFields() {
         let templateStore = MemorySummaryTemplateStore()
         let viewModel = MeetingViewModel(
@@ -2216,7 +2240,8 @@ final class QapiaTests: XCTestCase {
             id: "user-planning",
             displayName: "Planejamento",
             instructions: "Priorize compromissos confirmados.",
-            sections: ["Objetivos", "Responsáveis"]
+            sections: ["Objetivos", "Responsáveis"],
+            sectionSubtopics: ["Objetivos": ["Resultado esperado"]]
         )
         let edited = SummaryTemplate(
             id: original.id,
@@ -2229,6 +2254,7 @@ final class QapiaTests: XCTestCase {
 
         XCTAssertEqual(restored.instructions, original.instructions)
         XCTAssertEqual(restored.sections, original.sections)
+        XCTAssertEqual(restored.sectionSubtopics, original.sectionSubtopics)
     }
 
     func testSummaryInlineEditAutosavesMeetingAndMarkdownFile() async throws {

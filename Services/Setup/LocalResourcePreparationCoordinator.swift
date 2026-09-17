@@ -131,17 +131,34 @@ public actor LocalResourcePreparationCoordinator: LocalResourcePreparing {
 
         let task = Task { [whisperModelStore, summaryResourcePreparer, legacyVocabularyMigration] in
             await ApplicationSetupStatus.shared.update(.checking)
+            await ApplicationPrerequisiteStatus.shared.beginPreparation()
             do {
                 legacyVocabularyMigration.run()
                 await ApplicationSetupStatus.shared.update(.preparingTranscription)
-                _ = try await whisperModelStore.preparedModelURL()
+                do {
+                    _ = try await whisperModelStore.preparedModelURL()
+                    await ApplicationPrerequisiteStatus.shared.markWhisperReady()
+                } catch {
+                    await ApplicationPrerequisiteStatus.shared.markWhisperFailed(
+                        error.localizedDescription
+                    )
+                    throw error
+                }
 
                 await ApplicationSetupStatus.shared.update(.preparingSummaryRuntime)
-                let model = OllamaModelPolicy.recommendedModel(
-                    physicalMemoryBytes: ProcessInfo.processInfo.physicalMemory
-                )
+                let model = OllamaModelPreference.selectedChoice().modelName
+                await ApplicationPrerequisiteStatus.shared.beginSummaryPreparation(model: model)
                 await ApplicationSetupStatus.shared.update(.preparingSummaryModel(model))
-                try await summaryResourcePreparer.prepare()
+                do {
+                    try await summaryResourcePreparer.prepare()
+                    await ApplicationPrerequisiteStatus.shared.markSummaryReady(model: model)
+                } catch {
+                    await ApplicationPrerequisiteStatus.shared.markSummaryFailed(
+                        error,
+                        model: model
+                    )
+                    throw error
+                }
 
                 await ApplicationSetupStatus.shared.update(.ready)
             } catch {

@@ -56,6 +56,8 @@ public final class MeetingViewModel: ObservableObject {
     @Published public private(set) var summaryDraft = ""
     @Published public private(set) var summaryAutosaveMessage: String?
     @Published public private(set) var applicationSetupPhase: ApplicationSetupPhase = .idle
+    @Published public private(set) var prerequisiteItems: [LocalPrerequisiteItem] = []
+    @Published public private(set) var selectedOllamaModel: OllamaModelChoice = .fourB
     @Published public private(set) var isSetupBannerVisible = false
     @Published public private(set) var isStartingRecording = false
     @Published public private(set) var processingMeetingIDs: Set<UUID> = []
@@ -75,6 +77,7 @@ public final class MeetingViewModel: ObservableObject {
     private var elapsedAtTimerStart: TimeInterval = 0
     private var pendingCalendarReminderEventID: String?
     private var applicationSetupObservation: AnyCancellable?
+    private var prerequisiteObservation: AnyCancellable?
     private var setupTask: Task<Void, Never>?
     private var setupGeneration: UInt64 = 0
     private var hasScheduledColdLaunchRecovery = false
@@ -135,6 +138,7 @@ public final class MeetingViewModel: ObservableObject {
         self.calendarService = calendarService ?? GoogleCalendarService()
         self.reminderScheduler = reminderScheduler ?? CalendarReminderScheduler()
         self.resourcePreparer = resourcePreparer ?? LocalResourcePreparationCoordinator.shared
+        self.selectedOllamaModel = OllamaModelPreference.selectedChoice()
         self.googleAccount = nil
         do {
             self.meetings = try store.loadMeetings()
@@ -160,6 +164,9 @@ public final class MeetingViewModel: ObservableObject {
         }
         self.applicationSetupObservation = ApplicationSetupStatus.shared.$phase
             .sink { [weak self] phase in self?.applicationSetupPhase = phase }
+        self.prerequisiteItems = ApplicationPrerequisiteStatus.shared.items
+        self.prerequisiteObservation = ApplicationPrerequisiteStatus.shared.$items
+            .sink { [weak self] items in self?.prerequisiteItems = items }
         Task { [weak self] in await self?.restoreGoogleCalendarAccount() }
     }
 
@@ -193,6 +200,25 @@ public final class MeetingViewModel: ObservableObject {
         // resource/model retry must never rescan meetings created by this live
         // process because one of them may own open Core Audio files.
         launchApplicationSetup(after: nil, recoverInterruptedMeetingIDs: nil)
+    }
+
+    public func refreshPrerequisiteDiagnostics() {
+        ApplicationPrerequisiteStatus.shared.refreshEnvironmentChecks()
+        retryApplicationSetup()
+    }
+
+    public func selectOllamaModel(_ choice: OllamaModelChoice) {
+        guard choice != selectedOllamaModel else { return }
+        selectedOllamaModel = choice
+        OllamaModelPreference.select(choice)
+
+        // A model change must not race an installation already in progress.
+        // Cancel the UI generation and queue the new check after the previous
+        // preparation task has released its download/process resources.
+        let previousTask = setupTask
+        previousTask?.cancel()
+        setupTask = nil
+        launchApplicationSetup(after: previousTask, recoverInterruptedMeetingIDs: nil)
     }
 
     private func launchApplicationSetup(
@@ -419,7 +445,7 @@ public final class MeetingViewModel: ObservableObject {
         editingTemplateID = template.id
         templateNameDraft = template.displayName
         templateInstructionsDraft = template.instructions
-        templateSectionsDraft = template.sections.joined(separator: "\n")
+        templateSectionsDraft = template.editableStructure
         templateEditorMessage = nil
         templateEditorSaved = false
     }
@@ -435,11 +461,14 @@ public final class MeetingViewModel: ObservableObject {
 
     public func saveTemplateDraft() {
         let existing = editingTemplate
+        let parsedStructure = SummaryTemplate.parseStructure(templateSectionsDraft)
         let candidate = SummaryTemplate(
             id: existing?.id ?? "user-\(UUID().uuidString.lowercased())",
             displayName: templateNameDraft,
             instructions: templateInstructionsDraft,
-            sections: SummaryTemplate.parseSections(templateSectionsDraft),
+            sections: parsedStructure.sections,
+            sectionSubtopics: parsedStructure.subtopics.isEmpty ? nil : parsedStructure.subtopics,
+            customStructure: templateSectionsDraft,
             isBuiltIn: existing?.isBuiltIn ?? false
         )
 
@@ -465,7 +494,7 @@ public final class MeetingViewModel: ObservableObject {
             editingTemplateID = validated.id
             templateNameDraft = validated.displayName
             templateInstructionsDraft = validated.instructions
-            templateSectionsDraft = validated.sections.joined(separator: "\n")
+            templateSectionsDraft = validated.editableStructure
             if selectedTemplate.id == validated.id {
                 selectedTemplate = validated
             }
@@ -495,7 +524,9 @@ public final class MeetingViewModel: ObservableObject {
             id: "user-\(UUID().uuidString.lowercased())",
             displayName: name,
             instructions: source.instructions,
-            sections: source.sections
+            sections: source.sections,
+            sectionSubtopics: source.sectionSubtopics,
+            customStructure: source.editableStructure
         )
         do {
             let updated = templates + [copy]

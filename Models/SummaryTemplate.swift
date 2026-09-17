@@ -5,11 +5,30 @@ public struct SummaryTemplate: Identifiable, Hashable, Codable, Sendable {
     public let displayName: String
     public let instructions: String
     public let sections: [String]
+    public let sectionSubtopics: [String: [String]]?
     public let customStructure: String?
     public let isBuiltIn: Bool
 
     public var rawValue: String { displayName }
     public var isCustom: Bool { !isBuiltIn || id == Self.custom.id }
+
+    public func subtopics(for section: String) -> [String] {
+        sectionSubtopics?[section] ?? []
+    }
+
+    public var editableStructure: String {
+        sections.flatMap { section -> [String] in
+            [section] + subtopics(for: section).map { "\t- \($0)" }
+        }.joined(separator: "\n")
+    }
+
+    public var promptStructure: String {
+        sections.map { section in
+            let subtopics = subtopics(for: section)
+            guard !subtopics.isEmpty else { return "## \(section)" }
+            return "## \(section)\nSubtópicos obrigatórios: " + subtopics.joined(separator: " | ")
+        }.joined(separator: "\n")
+    }
 
     static let legacyStandardMeetingInstructions = "Produza um resumo objetivo e estritamente fiel à transcrição. Em Objetivo da reunião, descreva em uma frase clara a finalidade principal da conversa. Em Principais pontos abordados, use uma lista com marcadores: cada marcador deve representar um subtema e resumi-lo em uma única frase. Em Próximos passos, use uma lista com marcadores e informe o responsável somente quando ele puder ser identificado na transcrição; não deduza nomes, ações ou responsabilidades ausentes."
     static let previousStandardMeetingInstructions = "Produza um resumo aprofundado e estritamente fiel à transcrição, com volume proporcional ao conteúdo real da conversa. Em Objetivo da reunião, descreva em uma frase clara a finalidade principal. Em Principais pontos abordados, use uma lista com marcadores e cubra todos os subtemas relevantes, incluindo contexto, argumentos, decisões e justificativas, números, datas, riscos, pendências e divergências mencionadas; cada marcador deve ser uma frase informativa, sem repetição. Em Próximos passos, liste somente compromissos explícitos e preserve a ação, o prazo e o responsável quando estiverem identificados na transcrição; nunca deduza informações ausentes."
@@ -119,16 +138,14 @@ public struct SummaryTemplate: Identifiable, Hashable, Codable, Sendable {
 
     public func personalized(with structure: String) -> SummaryTemplate {
         let trimmed = structure.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parsedSections = trimmed
-            .components(separatedBy: CharacterSet(charactersIn: ";\n"))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let parsed = Self.parseStructure(trimmed)
 
         return SummaryTemplate(
             id: id,
             displayName: displayName,
             instructions: instructions,
-            sections: parsedSections.isEmpty ? sections : parsedSections,
+            sections: parsed.sections.isEmpty ? sections : parsed.sections,
+            sectionSubtopics: parsed.sections.isEmpty ? sectionSubtopics : parsed.subtopics,
             customStructure: trimmed,
             isBuiltIn: isBuiltIn
         )
@@ -147,6 +164,7 @@ public struct SummaryTemplate: Identifiable, Hashable, Codable, Sendable {
         displayName: String,
         instructions: String,
         sections: [String],
+        sectionSubtopics: [String: [String]]? = nil,
         customStructure: String? = nil,
         isBuiltIn: Bool = false
     ) {
@@ -154,6 +172,7 @@ public struct SummaryTemplate: Identifiable, Hashable, Codable, Sendable {
         self.displayName = displayName
         self.instructions = instructions
         self.sections = sections
+        self.sectionSubtopics = sectionSubtopics
         self.customStructure = customStructure
         self.isBuiltIn = isBuiltIn
     }
@@ -166,6 +185,7 @@ public extension SummaryTemplate {
             displayName: displayName,
             instructions: instructions,
             sections: sections,
+            sectionSubtopics: sectionSubtopics,
             isBuiltIn: isBuiltIn
         )
         let encoder = JSONEncoder()
@@ -195,6 +215,7 @@ public extension SummaryTemplate {
             displayName: snapshot.displayName ?? displayName,
             instructions: snapshot.instructions,
             sections: snapshot.sections,
+            sectionSubtopics: snapshot.sectionSubtopics,
             customStructure: value,
             isBuiltIn: snapshot.isBuiltIn ?? isBuiltIn
         )
@@ -229,6 +250,7 @@ public extension SummaryTemplate {
             displayName: restored.displayName,
             instructions: restored.instructions,
             sections: restored.sections,
+            sectionSubtopics: restored.sectionSubtopics,
             customStructure: restored.customStructure,
             isBuiltIn: restored.isBuiltIn
         )
@@ -254,21 +276,61 @@ public extension SummaryTemplate {
         }
         guard !hasDuplicate else { throw SummaryTemplateValidationError.duplicateSections }
 
+        var normalizedSubtopics: [String: [String]] = [:]
+        for section in normalizedSections {
+            let values = subtopics(for: section)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            if !values.isEmpty {
+                normalizedSubtopics[section] = values
+            }
+        }
+
         return SummaryTemplate(
             id: id,
             displayName: name,
             instructions: directions,
             sections: normalizedSections,
+            sectionSubtopics: normalizedSubtopics.isEmpty ? nil : normalizedSubtopics,
             customStructure: customStructure,
             isBuiltIn: isBuiltIn
         )
     }
 
     static func parseSections(_ value: String) -> [String] {
-        value
-            .components(separatedBy: CharacterSet(charactersIn: ";\n"))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        parseStructure(value).sections
+    }
+
+    static func parseStructure(
+        _ value: String
+    ) -> (sections: [String], subtopics: [String: [String]]) {
+        let expanded = value.replacingOccurrences(of: ";", with: "\n")
+        var sections: [String] = []
+        var subtopics: [String: [String]] = [:]
+        var currentSection: String?
+
+        for rawLine in expanded.components(separatedBy: .newlines) {
+            guard !rawLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                continue
+            }
+            let startsWithTab = rawLine.hasPrefix("\t")
+            let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            let startsWithDash = trimmed.hasPrefix("-")
+            var content = trimmed
+            if startsWithDash {
+                content.removeFirst()
+                content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard !content.isEmpty else { continue }
+
+            if (startsWithTab || startsWithDash), let currentSection {
+                subtopics[currentSection, default: []].append(content)
+            } else {
+                sections.append(content)
+                currentSection = content
+            }
+        }
+        return (sections, subtopics)
     }
 
     private static let snapshotV2Prefix = "qapia-template-v2:"
@@ -280,6 +342,7 @@ private struct SummaryTemplateSnapshot: Codable {
     let displayName: String?
     let instructions: String
     let sections: [String]
+    let sectionSubtopics: [String: [String]]?
     let isBuiltIn: Bool?
 }
 

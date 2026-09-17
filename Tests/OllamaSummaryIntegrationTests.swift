@@ -3,6 +3,17 @@ import XCTest
 @testable import QapiaCore
 
 final class OllamaSummaryIntegrationTests: XCTestCase {
+    func testUserCanPersistFourOrNineBillionParameterModelChoice() throws {
+        let suiteName = "QapiaTests.OllamaModelPreference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertEqual(OllamaModelPreference.selectedChoice(defaults: defaults), .fourB)
+        OllamaModelPreference.select(.nineB, defaults: defaults)
+        XCTAssertEqual(OllamaModelPreference.selectedChoice(defaults: defaults), .nineB)
+        XCTAssertEqual(OllamaModelPreference.selectedChoice(defaults: defaults).modelName, "qwen3.5:9b-q4_K_M")
+    }
+
     func testModelSelectionPrefersHigherQualityCompatibleLocalModel() {
         XCTAssertEqual(
             OllamaClient.preferredModel(
@@ -137,6 +148,102 @@ final class OllamaSummaryIntegrationTests: XCTestCase {
         ))
         XCTAssertFalse(DirectSummaryValidator.isValid(
             inventedDeadline,
+            sourceTranscript: transcript,
+            template: .standardMeeting
+        ))
+    }
+
+    func testSummaryNormalizerCanonicalizesCommonOllamaMarkdownVariations() {
+        let response = """
+        ```markdown
+        # Ata da reunião
+
+        **1. Objetivo da reunião:**
+        Avaliar a prontidão do portal.
+
+        ### Principais pontos abordados
+        - O grupo revisou os riscos do lançamento.
+
+        __Próximos passos__
+        Não informado
+        ```
+        """
+
+        let normalized = SummaryOutputNormalizer.normalize(
+            response,
+            template: .standardMeeting
+        )
+
+        XCTAssertEqual(
+            normalized.components(separatedBy: .newlines)
+                .filter { $0.hasPrefix("## ") },
+            SummaryTemplate.standardMeeting.sections.map { "## \($0)" }
+        )
+        XCTAssertTrue(normalized.contains("Não informado na transcrição"))
+        XCTAssertTrue(DirectSummaryValidator.isValid(
+            normalized,
+            sourceTranscript: "O objetivo foi avaliar a prontidão do portal. O grupo revisou os riscos do lançamento.",
+            template: .standardMeeting
+        ))
+    }
+
+    func testSummaryWithRequiredSubtopicsUsesOnlyMainTopicsAsHeadings() {
+        let template = SummaryTemplate(
+            id: "nested",
+            displayName: "Estrutura hierárquica",
+            instructions: "Organize os assuntos.",
+            sections: ["Contexto", "Encaminhamentos"],
+            sectionSubtopics: ["Contexto": ["Cenário atual", "Riscos"]]
+        )
+        let response = """
+        ## Contexto
+        - **Cenário atual:** O portal está em validação.
+        - **Riscos:** A equipe registrou lentidão.
+
+        ## Encaminhamentos
+        Não informado na transcrição
+        """
+
+        let failures = DirectSummaryValidator.failureReasons(
+            response,
+            sourceTranscript: "O portal está em validação e a equipe registrou lentidão.",
+            template: template
+        )
+        XCTAssertTrue(failures.isEmpty, "Falhas: \(failures)")
+        XCTAssertFalse(DirectSummaryValidator.isValid(
+            response.replacingOccurrences(of: "- **Riscos:** A equipe registrou lentidão.\n", with: ""),
+            sourceTranscript: "O portal está em validação e a equipe registrou lentidão.",
+            template: template
+        ))
+        XCTAssertTrue(DirectExecutiveSummaryPrompt.user(
+            transcript: "Conteúdo",
+            template: template
+        ).contains("Subtópicos obrigatórios: Cenário atual | Riscos"))
+    }
+
+    func testDirectValidationTreatsWrittenAndDigitNumbersAsEquivalent() {
+        let transcript = "A equipe definiu três etapas adicionais para o processo."
+        let summary = """
+        ## Objetivo da reunião
+
+        Alinhar a continuidade do processo.
+
+        ## Principais pontos abordados
+
+        - Foram definidas 3 etapas adicionais.
+
+        ## Próximos passos
+
+        Não informado na transcrição
+        """
+
+        XCTAssertTrue(DirectSummaryValidator.isValid(
+            summary,
+            sourceTranscript: transcript,
+            template: .standardMeeting
+        ))
+        XCTAssertFalse(DirectSummaryValidator.isValid(
+            summary.replacingOccurrences(of: "3 etapas", with: "12 etapas"),
             sourceTranscript: transcript,
             template: .standardMeeting
         ))
