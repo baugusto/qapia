@@ -19,6 +19,17 @@ class AuditTeacherTranscriptsTests(unittest.TestCase):
     def test_tokens_are_casefolded_and_unicode_aware(self) -> None:
         self.assertEqual(MODULE.tokens("AÇÃO, decisão!"), ["ação", "decisão"])
 
+    def test_pathological_repetition_is_detected(self) -> None:
+        signals = MODULE.transcript_degeneracy_signals("olá " * 500)
+        self.assertTrue(signals["pathological"])
+        self.assertIn("dominant_token_repetition", signals["reasons"])
+
+    def test_normal_sentence_is_not_marked_pathological(self) -> None:
+        signals = MODULE.transcript_degeneracy_signals(
+            "A equipe revisou os requisitos e definiu responsáveis para cada ação."
+        )
+        self.assertFalse(signals["pathological"])
+
     def test_audit_accepts_complete_private_teacher_output(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -91,6 +102,9 @@ class AuditTeacherTranscriptsTests(unittest.TestCase):
             report = MODULE.audit(dataset_root, teacher_root)
 
             self.assertTrue(report["integrity"]["valid"])
+            self.assertTrue(
+                report["quality_blockers"]["teacher_generation_accepted"]
+            )
             self.assertEqual(report["integrity"]["teacher_outputs"], 1)
             self.assertEqual(report["coverage"]["audio_hours"], round(600 / 3600, 6))
             self.assertEqual(

@@ -13,6 +13,7 @@ This directory captures the product reasoning and engineering decisions behind Q
 1. [Local AI Discovery and Specialization Plan](qapia-ai-discovery.md) records the target architecture, prior-adapter diagnosis, model shortlist, quality gates and execution plan.
 2. [Dataset Registry](qapia-ai-dataset-registry.yaml) is the machine-readable commercial-use screening and provenance allowlist.
 3. [Private Recording Baseline](qapia-private-audio-baseline.md) records the privacy-preserving inventory, sample selection and annotation gates for existing app recordings.
+4. [Private Annotation Guide](qapia-private-annotation-guide.md) defines the secure human-review workflow and ASR approval rules.
 
 ## Integration and distribution
 

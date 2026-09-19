@@ -8,6 +8,7 @@ import json
 import os
 import re
 import statistics
+import zlib
 from collections import Counter
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -38,6 +39,61 @@ def rounded_summary(values: Iterable[float]) -> dict[str, float | None]:
         "mean": round(statistics.fmean(materialized), 6),
         "median": round(statistics.median(materialized), 6),
         "max": round(max(materialized), 6),
+    }
+
+
+def transcript_degeneracy_signals(
+    value: str,
+    segment_texts: Iterable[str] = (),
+) -> dict[str, Any]:
+    transcript_tokens = tokens(value)
+    token_counts = Counter(transcript_tokens)
+    dominant_token_fraction = (
+        max(token_counts.values()) / len(transcript_tokens) if transcript_tokens else 1.0
+    )
+    unique_token_fraction = (
+        len(token_counts) / len(transcript_tokens) if transcript_tokens else 0.0
+    )
+    trigrams = [
+        tuple(transcript_tokens[index : index + 3])
+        for index in range(max(0, len(transcript_tokens) - 2))
+    ]
+    trigram_counts = Counter(trigrams)
+    dominant_trigram_fraction = (
+        max(trigram_counts.values()) * 3 / len(transcript_tokens)
+        if trigrams and transcript_tokens
+        else 0.0
+    )
+    encoded = value.encode("utf-8")
+    compression_ratio = len(encoded) / max(len(zlib.compress(encoded)), 1)
+    normalized_segments = [
+        " ".join(tokens(text)) for text in segment_texts if tokens(text)
+    ]
+    duplicate_segment_fraction = (
+        1.0 - len(set(normalized_segments)) / len(normalized_segments)
+        if normalized_segments
+        else 0.0
+    )
+
+    reasons: list[str] = []
+    if len(transcript_tokens) >= 100 and dominant_token_fraction >= 0.18:
+        reasons.append("dominant_token_repetition")
+    if len(transcript_tokens) >= 100 and unique_token_fraction <= 0.04:
+        reasons.append("very_low_vocabulary_diversity")
+    if len(transcript_tokens) >= 100 and dominant_trigram_fraction >= 0.15:
+        reasons.append("dominant_trigram_repetition")
+    if len(encoded) >= 1000 and compression_ratio >= 8.0:
+        reasons.append("extreme_text_compressibility")
+    if len(normalized_segments) >= 20 and duplicate_segment_fraction >= 0.50:
+        reasons.append("duplicate_segment_repetition")
+    return {
+        "pathological": bool(reasons),
+        "reasons": reasons,
+        "dominantTokenFraction": round(dominant_token_fraction, 6),
+        "uniqueTokenFraction": round(unique_token_fraction, 6),
+        "dominantTrigramFraction": round(dominant_trigram_fraction, 6),
+        "compressionRatio": round(compression_ratio, 6),
+        "duplicateSegmentFraction": round(duplicate_segment_fraction, 6),
     }
 
 
@@ -73,6 +129,11 @@ def audit(dataset_root: Path, teacher_root: Path) -> dict[str, Any]:
     low_confidence_word_count = 0
     empty_draft_count = 0
     timestamp_violation_count = 0
+    pathological_repetition_count = 0
+    degeneracy_reason_counts: Counter[str] = Counter()
+    dominant_token_fractions: list[float] = []
+    unique_token_fractions: list[float] = []
+    text_compression_ratios: list[float] = []
 
     for output_path in output_paths:
         output_modes[oct(output_path.stat().st_mode & 0o777)] += 1
@@ -167,6 +228,21 @@ def audit(dataset_root: Path, teacher_root: Path) -> dict[str, Any]:
         teacher_tokens = tokens(draft) if isinstance(draft, str) else []
         if not teacher_tokens:
             empty_draft_count += 1
+        segment_texts = [
+            str(segment.get("text", ""))
+            for source in result.get("sources", [])
+            for segment in source.get("segments", [])
+        ]
+        degeneracy = transcript_degeneracy_signals(
+            draft if isinstance(draft, str) else "",
+            segment_texts,
+        )
+        dominant_token_fractions.append(degeneracy["dominantTokenFraction"])
+        unique_token_fractions.append(degeneracy["uniqueTokenFraction"])
+        text_compression_ratios.append(degeneracy["compressionRatio"])
+        if degeneracy["pathological"]:
+            pathological_repetition_count += 1
+            degeneracy_reason_counts.update(degeneracy["reasons"])
 
         transcript_records = [
             record for record in meeting["files"] if record["kind"] == "source_transcript"
@@ -228,6 +304,14 @@ def audit(dataset_root: Path, teacher_root: Path) -> dict[str, Any]:
             "classifications": dict(sorted(classifications.items())),
             "detected_languages": dict(sorted(detected_languages.items())),
         },
+        "quality_blockers": {
+            "pathological_repetition_outputs": pathological_repetition_count,
+            "degeneracy_reasons": dict(sorted(degeneracy_reason_counts.items())),
+            "dominant_token_fraction": rounded_summary(dominant_token_fractions),
+            "unique_token_fraction": rounded_summary(unique_token_fractions),
+            "text_compression_ratio": rounded_summary(text_compression_ratios),
+            "teacher_generation_accepted": pathological_repetition_count == 0,
+        },
         "signals_for_human_review": {
             "language_probability": rounded_summary(language_probabilities),
             "word_probability": rounded_summary(word_probabilities),
@@ -261,7 +345,12 @@ def main() -> int:
         args.output.write_text(serialized, encoding="utf-8")
         os.chmod(args.output, 0o600)
     print(serialized, end="")
-    return 0 if report["integrity"]["valid"] else 1
+    return (
+        0
+        if report["integrity"]["valid"]
+        and report["quality_blockers"]["teacher_generation_accepted"]
+        else 1
+    )
 
 
 if __name__ == "__main__":

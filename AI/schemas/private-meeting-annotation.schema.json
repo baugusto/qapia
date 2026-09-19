@@ -30,6 +30,26 @@
     "split": {
       "enum": ["pending_participant_grouping", "train", "validation", "test", "excluded"]
     },
-    "reviewNotes": { "type": "array", "items": { "type": "string" } }
+    "reviewNotes": { "type": "array", "items": { "type": "string" } },
+    "reviewer": { "type": ["string", "null"], "maxLength": 120 },
+    "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+    "reviewChecklist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audioReviewed",
+        "completenessChecked",
+        "numbersChecked",
+        "namesAndAcronymsChecked",
+        "uncertaintiesMarked"
+      ],
+      "properties": {
+        "audioReviewed": { "type": "boolean" },
+        "completenessChecked": { "type": "boolean" },
+        "numbersChecked": { "type": "boolean" },
+        "namesAndAcronymsChecked": { "type": "boolean" },
+        "uncertaintiesMarked": { "type": "boolean" }
+      }
+    }
   }
 }

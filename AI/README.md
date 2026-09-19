@@ -24,4 +24,6 @@ The current production pipeline remains the rollback baseline until the candidat
 
 The private recorded-audio workflow starts with `notebooks/recorded-audio-inventory.ipynb`. Its ID-to-path map and staged corpus are written only under ignored `AI/data/` paths.
 
-Teacher transcripts are audited with `scripts/audit_teacher_transcripts.py`. Its report is aggregate-only: it checks coverage, permissions, timestamps and confidence signals without emitting transcript text or per-meeting results. Teacher output remains an annotation draft until a person corrects it.
+Teacher transcripts are audited with `scripts/audit_teacher_transcripts.py`. Its report is aggregate-only: it checks coverage, permissions, timestamps, confidence and pathological repetition without emitting transcript text or per-meeting results. A teacher generation with any pathological repetition is rejected. Teacher output remains an annotation draft until a person corrects it.
+
+`scripts/prepare_annotation_queue.py` ranks private drafts for review without embedding transcript content in the queue. `scripts/annotation_server.py` provides a token-protected, localhost-only interface for audio playback and correction. Approval requires a named reviewer and the complete ASR checklist; training eligibility additionally requires documented consent or authority.

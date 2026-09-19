@@ -2,7 +2,7 @@
 
 **Data:** 19/09/2026
 
-**Status:** transcrição-professora concluída; treino bloqueado até documentação de consentimento/autoridade e revisão humana
+**Status:** fila e interface privadas prontas; treino bloqueado até documentação de consentimento/autoridade e revisão humana
 
 ## Escopo e privacidade
 
@@ -78,30 +78,46 @@ Em 19/09/2026, após autorização explícita do responsável pelo projeto, o pa
 
 ## Resultado da transcrição-professora
 
-O Whisper Large v3 concluiu as 18 reuniões, compostas por 19 arquivos de áudio e 9,98 horas. A execução levou 2.617,48 segundos, aproximadamente 13,73 vezes mais rápida que tempo real.
+O primeiro baseline do Whisper Large v3 concluiu as 18 reuniões, mas a inspeção visual do caso de maior risco revelou repetição patológica em silêncio. A auditoria foi ampliada com diversidade lexical, trigramas dominantes, compressibilidade textual e duplicação de segmentos. O gate retroativo reprovou 7 das 18 saídas da v1.
 
-| Medida | Resultado |
-| --- | ---: |
-| Saídas esperadas/concluídas | 18/18 |
-| Arquivos temporários restantes | 0 |
-| Erros estruturais | 0 |
-| Segmentos com timestamps | 14.974 |
-| Palavras com timestamps | 74.175 |
-| Rascunhos vazios | 0 |
-| Probabilidade média por palavra | 0,9117 |
-| Palavras com probabilidade abaixo de 0,5 | 4.821 (6,50%) |
+Nenhuma saída foi apagada ou sobrescrita. A v1 permanece isolada como evidência de falha. As 18 reuniões foram reprocessadas em uma pasta v2 independente com:
 
-A comparação com a transcrição atual do app encontrou similaridade sequencial média de 0,4923 e mediana de 0,5160. A razão média entre palavras do professor e do app foi 0,8291, com amplitude de 0,0979 a 1,2794. Esses números **não medem acurácia**, porque nenhuma das duas saídas é referência humana. Eles apenas revelam divergência suficiente para priorizar a revisão dos casos extremos.
+- Silero VAD antes da decodificação;
+- reset de contexto entre janelas;
+- fallback de temperatura de 0,0 a 1,0;
+- limites de compressão, log-probability e ausência de fala;
+- limiar de alucinação em silêncio de 2 segundos;
+- timestamps por palavra preservados.
+
+A v2 concluiu as 9,98 horas em 2.345,66 segundos, aproximadamente 15,32 vezes mais rápida que tempo real.
+
+| Medida | v1 reprovada | v2 aceita para revisão |
+| --- | ---: | ---: |
+| Saídas esperadas/concluídas | 18/18 | 18/18 |
+| Erros estruturais | 0 | 0 |
+| Saídas com repetição patológica | 7 | 0 |
+| Segmentos com timestamps | 14.974 | 10.915 |
+| Palavras com timestamps | 74.175 | 87.077 |
+| Rascunhos vazios | 0 | 0 |
+| Probabilidade média por palavra | 0,9117 | 0,9281 |
+| Palavras com probabilidade abaixo de 0,5 | 4.821 (6,50%) | 3.673 (4,22%) |
+| Similaridade média com a saída atual | 0,4923 | 0,7919 |
+| Similaridade mediana com a saída atual | 0,5160 | 0,8192 |
+
+A razão média entre palavras do professor v2 e do app foi 1,0255, com amplitude de 0,4367 a 1,9445. Esses números **não medem acurácia**, porque nenhuma das duas saídas é referência humana. Eles apenas revelam divergência suficiente para priorizar a revisão dos casos extremos.
 
 Todas as 18 saídas permanecem marcadas como `pending_human_correction`. A autorização de transferência e processamento não substitui a documentação de consentimento/autoridade de uso de cada reunião. Portanto, os dados ainda não podem alimentar treino, validação ou teste.
 
 ## Próximo gate
 
-1. ordenar a fila privada de revisão por baixa confiança e divergência;
-2. revisar áudio, transcrição-professora e transcrição atual sem revelar a origem ao avaliador quando possível;
-3. corrigir texto, números, nomes, siglas e limites de fala;
-4. aprovar ou excluir cada reunião e registrar consentimento/autoridade;
-5. somente depois produzir o ledger de evidências e a ata de referência.
+A fila privada foi reconstruída exclusivamente com a v2 aceita. Ela contém 1 item de alta prioridade, 4 médios e 13 normais, sem rascunho patológico. A interface local protegida permite ouvir os 19 arquivos, corrigir o professor, consultar a saída atual como referência ruidosa, preencher o checklist e aprovar ou excluir cada item. O protocolo completo está em `Docs/qapia-private-annotation-guide.md`.
+
+O trabalho humano agora é:
+
+1. revisar áudio, transcrição-professora e transcrição atual sem assumir que qualquer saída automática esteja correta;
+2. corrigir texto, números, nomes, siglas, negações e omissões;
+3. aprovar ou excluir cada reunião e registrar consentimento/autoridade;
+4. somente depois produzir o ledger de evidências e a ata de referência.
 
 ## Artefatos
 
@@ -110,4 +126,6 @@ Todas as 18 saídas permanecem marcadas como `pending_human_correction`. A autor
 - `AI/scripts/stage_private_sample.py`: staging anonimizado e privado;
 - `AI/scripts/teacher_transcribe.py`: transcrição-professora na GPU;
 - `AI/scripts/audit_teacher_transcripts.py`: auditoria agregada sem conteúdo textual;
+- `AI/scripts/prepare_annotation_queue.py`: fila privada orientada por risco de revisão;
+- `AI/scripts/annotation_server.py`: interface localhost com áudio, correção e gates;
 - `AI/schemas/private-meeting-annotation.schema.json`: estados de consentimento e revisão.

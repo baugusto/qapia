@@ -21,6 +21,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--compute-type", default="float16")
     parser.add_argument("--language", default="pt")
+    parser.add_argument(
+        "--vad-filter",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument(
+        "--condition-on-previous-text",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
+    parser.add_argument("--hallucination-silence-threshold", type=float, default=2.0)
     return parser.parse_args()
 
 
@@ -28,15 +39,27 @@ def transcribe_file(
     model: WhisperModel,
     audio_path: Path,
     language: str,
+    vad_filter: bool,
+    condition_on_previous_text: bool,
+    hallucination_silence_threshold: float,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    temperatures = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
     segments, info = model.transcribe(
         str(audio_path),
         language=language,
         beam_size=5,
         best_of=5,
-        temperature=0.0,
-        condition_on_previous_text=True,
-        vad_filter=False,
+        temperature=temperatures,
+        compression_ratio_threshold=2.4,
+        log_prob_threshold=-1.0,
+        no_speech_threshold=0.6,
+        condition_on_previous_text=condition_on_previous_text,
+        vad_filter=vad_filter,
+        vad_parameters={
+            "min_silence_duration_ms": 500,
+            "speech_pad_ms": 400,
+        },
+        hallucination_silence_threshold=hallucination_silence_threshold,
         word_timestamps=True,
     )
     output_segments: list[dict[str, Any]] = []
@@ -105,7 +128,14 @@ def main() -> int:
         draft_parts: list[str] = []
         for file_record in audio_files:
             audio_path = dataset_root / file_record["file"]
-            segments, audio_metadata = transcribe_file(model, audio_path, args.language)
+            segments, audio_metadata = transcribe_file(
+                model,
+                audio_path,
+                args.language,
+                args.vad_filter,
+                args.condition_on_previous_text,
+                args.hallucination_silence_threshold,
+            )
             sources.append(
                 {
                     "file": file_record["file"],
@@ -121,14 +151,26 @@ def main() -> int:
             "sample_id": identifier,
             "classification": "private-sensitive-restricted",
             "teacher": {
+                "profile": "silence-robust-v2",
                 "model": args.model,
                 "device": args.device,
                 "compute_type": args.compute_type,
                 "language": args.language,
                 "beam_size": 5,
                 "best_of": 5,
-                "temperature": 0.0,
-                "vad_filter": False,
+                "temperature": [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+                "compression_ratio_threshold": 2.4,
+                "log_prob_threshold": -1.0,
+                "no_speech_threshold": 0.6,
+                "condition_on_previous_text": args.condition_on_previous_text,
+                "vad_filter": args.vad_filter,
+                "vad_parameters": {
+                    "min_silence_duration_ms": 500,
+                    "speech_pad_ms": 400,
+                },
+                "hallucination_silence_threshold": (
+                    args.hallucination_silence_threshold
+                ),
                 "word_timestamps": True,
             },
             "review_status": "pending_human_correction",
