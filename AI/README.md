@@ -10,6 +10,7 @@ This directory contains reproducible, reviewable assets for the local speech and
 - `schemas/`: contracts shared by training, evaluation and the application;
 - `scripts/`: deterministic preparation, training, conversion and benchmark tools;
 - `model-cards/`: evidence and limitations for candidates that reach release review.
+- `notebooks/`: executed, privacy-preserving analysis and data-quality audits.
 
 ## Never versioned
 
@@ -20,3 +21,5 @@ Raw audio, real transcripts, personal data, model weights, adapters, caches, cre
 A model may move toward app integration only when its data receipt is complete and every gate in `evals/quality-gates.yaml` passes on the locked PT-BR test set. No aggregate score can compensate for a critical unsupported claim or an invented owner, deadline or decision.
 
 The current production pipeline remains the rollback baseline until the candidate passes a shadow-mode release gate.
+
+The private recorded-audio workflow starts with `notebooks/recorded-audio-inventory.ipynb`. Its ID-to-path map and staged corpus are written only under ignored `AI/data/` paths.

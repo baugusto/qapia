@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qapia.com.br/schemas/private-meeting-annotation.schema.json",
+  "title": "QAP.ia Private Meeting Annotation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sampleId",
+    "consentStatus",
+    "asrReviewStatus",
+    "minutesReviewStatus"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sampleId": { "type": "string", "pattern": "^[a-f0-9]{12}$" },
+    "consentStatus": {
+      "enum": ["pending_documentation", "approved_for_private_training", "excluded"]
+    },
+    "asrReviewStatus": {
+      "enum": ["pending_teacher_transcription", "pending_human_correction", "approved", "excluded"]
+    },
+    "minutesReviewStatus": {
+      "enum": ["pending", "in_review", "approved", "excluded"]
+    },
+    "teacherTranscriptFile": { "type": ["string", "null"] },
+    "correctedTranscriptFile": { "type": ["string", "null"] },
+    "evidenceLedgerFile": { "type": ["string", "null"] },
+    "referenceMinutesFile": { "type": ["string", "null"] },
+    "split": {
+      "enum": ["pending_participant_grouping", "train", "validation", "test", "excluded"]
+    },
+    "reviewNotes": { "type": "array", "items": { "type": "string" } }
+  }
+}
