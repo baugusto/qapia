@@ -2,7 +2,7 @@
 
 **Data:** 19/09/2026
 
-**Status:** amostra local preparada; transferência e treino bloqueados até autorização explícita e revisão humana
+**Status:** transcrição-professora concluída; treino bloqueado até documentação de consentimento/autoridade e revisão humana
 
 ## Escopo e privacidade
 
@@ -72,7 +72,36 @@ O fluxo aprovado é:
 
 ## Infraestrutura preparada
 
-O servidor IA tem um ambiente Python isolado com `faster-whisper 1.2.1`. O Whisper Large v3 foi baixado e carregado com sucesso na RTX 3080 em FP16. O diretório privado de origem e o diretório de saídas foram criados com acesso restrito, mas nenhum áudio, transcript ou resumo foi transferido.
+O servidor IA tem um ambiente Python isolado com `faster-whisper 1.2.1`, CUDA 12 e cuDNN. O Whisper Large v3 foi executado na RTX 3080 em FP16. O diretório privado de origem usa permissão `0700`; manifestos, rótulos e arquivos de conteúdo usam `0600`.
+
+Em 19/09/2026, após autorização explícita do responsável pelo projeto, o pacote privado foi transferido somente pela rede local para o diretório restrito do experimento. A verificação de entrada confirmou 55 de 55 arquivos presentes, com tamanho e SHA-256 corretos. O pacote não foi publicado, enviado a serviços externos ou incluído no Git.
+
+## Resultado da transcrição-professora
+
+O Whisper Large v3 concluiu as 18 reuniões, compostas por 19 arquivos de áudio e 9,98 horas. A execução levou 2.617,48 segundos, aproximadamente 13,73 vezes mais rápida que tempo real.
+
+| Medida | Resultado |
+| --- | ---: |
+| Saídas esperadas/concluídas | 18/18 |
+| Arquivos temporários restantes | 0 |
+| Erros estruturais | 0 |
+| Segmentos com timestamps | 14.974 |
+| Palavras com timestamps | 74.175 |
+| Rascunhos vazios | 0 |
+| Probabilidade média por palavra | 0,9117 |
+| Palavras com probabilidade abaixo de 0,5 | 4.821 (6,50%) |
+
+A comparação com a transcrição atual do app encontrou similaridade sequencial média de 0,4923 e mediana de 0,5160. A razão média entre palavras do professor e do app foi 0,8291, com amplitude de 0,0979 a 1,2794. Esses números **não medem acurácia**, porque nenhuma das duas saídas é referência humana. Eles apenas revelam divergência suficiente para priorizar a revisão dos casos extremos.
+
+Todas as 18 saídas permanecem marcadas como `pending_human_correction`. A autorização de transferência e processamento não substitui a documentação de consentimento/autoridade de uso de cada reunião. Portanto, os dados ainda não podem alimentar treino, validação ou teste.
+
+## Próximo gate
+
+1. ordenar a fila privada de revisão por baixa confiança e divergência;
+2. revisar áudio, transcrição-professora e transcrição atual sem revelar a origem ao avaliador quando possível;
+3. corrigir texto, números, nomes, siglas e limites de fala;
+4. aprovar ou excluir cada reunião e registrar consentimento/autoridade;
+5. somente depois produzir o ledger de evidências e a ata de referência.
 
 ## Artefatos
 
@@ -80,4 +109,5 @@ O servidor IA tem um ambiente Python isolado com `faster-whisper 1.2.1`. O Whisp
 - `AI/scripts/profile_recorded_audio.py`: perfil sem exportar conteúdo;
 - `AI/scripts/stage_private_sample.py`: staging anonimizado e privado;
 - `AI/scripts/teacher_transcribe.py`: transcrição-professora na GPU;
+- `AI/scripts/audit_teacher_transcripts.py`: auditoria agregada sem conteúdo textual;
 - `AI/schemas/private-meeting-annotation.schema.json`: estados de consentimento e revisão.

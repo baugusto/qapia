@@ -23,3 +23,5 @@ A model may move toward app integration only when its data receipt is complete a
 The current production pipeline remains the rollback baseline until the candidate passes a shadow-mode release gate.
 
 The private recorded-audio workflow starts with `notebooks/recorded-audio-inventory.ipynb`. Its ID-to-path map and staged corpus are written only under ignored `AI/data/` paths.
+
+Teacher transcripts are audited with `scripts/audit_teacher_transcripts.py`. Its report is aggregate-only: it checks coverage, permissions, timestamps and confidence signals without emitting transcript text or per-meeting results. Teacher output remains an annotation draft until a person corrects it.
