@@ -1,0 +1,210 @@
+schema_version: 1
+reviewed_at: 2026-09-18
+scope: qapia-commercial-asr-and-meeting-intelligence
+policy:
+  raw_data_in_git: false
+  commercial_distribution_intent: true
+  require_exact_revision: true
+  require_checksum: true
+  require_source_receipt: true
+  require_meeting_level_split: true
+  unknown_or_conflicting_rights: blocked
+  note: >-
+    This is a technical commercial-use screening, not legal advice. Every
+    downloaded revision and its upstream content rights must be reviewed before
+    training or distributing derived model weights.
+
+datasets:
+  - id: amisum
+    task: meeting_summarization
+    source: https://huggingface.co/datasets/TalTechNLP/AMIsum
+    upstream: https://groups.inf.ed.ac.uk/ami/download/
+    language: en
+    size: 137 meetings
+    declared_license: CC-BY-4.0
+    decision: allowlist_candidate
+    permitted_role: low_weight_structure_and_summary_training
+    conditions:
+      - preserve attribution and change notice
+      - pin the exact dataset revision
+      - keep meetings intact across splits
+    risks:
+      - small corpus
+      - English only
+      - meeting style differs from Brazilian commercial meetings
+
+  - id: ami_meeting_corpus
+    task: meeting_audio_and_transcript
+    source: https://groups.inf.ed.ac.uk/ami/download/
+    language: en
+    declared_license: CC-BY-4.0
+    decision: allowlist_candidate
+    permitted_role: meeting_structure_and_optional_asr_evaluation
+    conditions:
+      - preserve attribution and exact release
+      - do not overlap AMIsum or QMSum meetings across splits
+    risks:
+      - English only
+      - staged product-design meetings are not representative of all use cases
+
+  - id: icsi_meeting_corpus
+    task: meeting_audio_and_transcript
+    source: https://groups.inf.ed.ac.uk/ami/icsi/
+    language: en
+    declared_license: CC-BY-4.0
+    decision: allowlist_candidate
+    permitted_role: meeting_structure_extraction_and_optional_asr_evaluation
+    conditions:
+      - preserve attribution and exact release
+      - track every QMSum-derived item back to its meeting
+    risks:
+      - English only
+      - academic-meeting domain
+
+  - id: common_voice_scripted_speech_27_portuguese
+    task: asr
+    source: https://mozilladatacollective.com/datasets/cmu5wui2w00e8nq07idithpm6
+    language: pt
+    variants: [pt-BR, pt-PT]
+    size: 230.38 hours total; 188.84 validated; 86209 pt-BR clips
+    declared_license: CC0-1.0
+    decision: allowlist_candidate
+    permitted_role: asr_acoustic_and_language_robustness
+    conditions:
+      - never attempt speaker re-identification
+      - do not re-host or redistribute the raw corpus
+      - pin the 27.0 release and retain the Mozilla receipt
+      - filter and report the pt-BR subset independently
+    risks:
+      - read speech rather than spontaneous meetings
+      - uneven speaker and accent distribution
+
+  - id: multilingual_librispeech_portuguese
+    task: asr
+    source: https://huggingface.co/datasets/facebook/multilingual_librispeech
+    language: pt
+    size: approximately 161 train hours plus development and test
+    declared_license: CC-BY-4.0
+    decision: allowlist_candidate
+    permitted_role: low_weight_asr_robustness
+    conditions:
+      - preserve attribution
+      - pin exact revision and subset
+    risks:
+      - audiobook/read-speech domain
+      - does not represent overlap, crosstalk or meeting acoustics
+
+  - id: fleurs_pt_br
+    task: asr
+    source: https://huggingface.co/datasets/google/fleurs
+    subset: pt_br
+    language: pt-BR
+    size: approximately 4100 rows
+    declared_license: CC-BY-4.0
+    decision: allowlist_candidate
+    permitted_role: evaluation_and_low_weight_asr_training
+    conditions:
+      - preserve attribution
+      - pin exact revision
+    risks:
+      - small
+      - read speech rather than meetings
+
+  - id: qmsum
+    task: query_and_general_meeting_summarization
+    source: https://github.com/Yale-LILY/QMSum
+    language: en
+    size: 1808 query-summary pairs over 232 meetings
+    declared_license: MIT for repository and annotations
+    decision: conditional
+    permitted_role: ami_and_icsi_subsets_only_after_provenance_audit
+    conditions:
+      - distinguish annotation rights from transcript rights
+      - map every meeting to AMI, ICSI or Committee origin
+      - preserve MIT and upstream notices
+      - exclude Committee until its source rights are reviewed
+      - enforce cross-dataset meeting-level deduplication
+    risks:
+      - mixed upstream rights
+      - query summaries do not equal complete structured minutes
+      - English only
+
+  - id: teams_meeting_transcripts_kaggle
+    task: meeting_summarization
+    source: https://www.kaggle.com/datasets/yusufayta/teams-meeting-transcripts
+    language: en
+    declared_license: MIT in catalog metadata
+    decision: conditional
+    permitted_role: none_until_archive_audit
+    conditions:
+      - download and hash the exact archive
+      - audit upstream provenance, consent and transcript rights
+      - inspect duplicates and synthetic content
+    risks:
+      - catalog license may not cover underlying conversations
+      - provenance not established
+
+  - id: proprietary_qapia_opt_in
+    task: [asr, evidence_extraction, meeting_summarization]
+    source: first_party
+    language: pt-BR
+    declared_license: contractual_consent_required
+    decision: conditional
+    permitted_role: primary_domain_corpus_after_governance_approval
+    conditions:
+      - explicit and revocable training consent
+      - authority to include every participant
+      - de-identification before annotation and training
+      - documented retention and deletion process
+      - organization and speaker separation across splits
+      - no raw content in Git or general logs
+    risks:
+      - personal and confidential business information
+      - consent imbalance between meeting participants
+
+  - id: meetingbank
+    task: meeting_summarization
+    source: https://huggingface.co/datasets/huuuyeah/meetingbank
+    language: en
+    declared_license: CC-BY-NC-SA-4.0
+    decision: blocked
+    reason: noncommercial terms are incompatible with product-model training
+
+  - id: dialogsum
+    task: dialogue_summarization
+    source: https://github.com/cylnlp/dialogsum
+    language: en
+    declared_license: CC-BY-NC-SA-4.0
+    decision: blocked
+    reason: noncommercial terms are incompatible with product-model training
+
+  - id: samsum
+    task: dialogue_summarization
+    source: https://huggingface.co/datasets/Samsung/samsum
+    language: en
+    declared_license: CC-BY-NC-ND-4.0
+    decision: blocked
+    reason: noncommercial and no-derivatives terms are incompatible with training
+
+  - id: coraa_v1_1
+    task: asr
+    source: https://huggingface.co/datasets/nilc-nlp/CORAA-v1.1
+    language: pt-BR
+    size: approximately 291 hours
+    declared_license: mixed corpus standardized as CC-BY-NC-ND-4.0 in publication
+    decision: blocked
+    reason: noncommercial/no-derivatives restrictions; Hub metadata must not override upstream terms
+
+  - id: c_oral_brasil
+    task: asr_and_spontaneous_speech
+    language: pt-BR
+    declared_license: CC-BY-NC-SA-4.0
+    decision: blocked
+    reason: noncommercial terms are incompatible with product-model training
+
+  - id: kaggle_call_center_public_samples
+    task: asr_and_conversation
+    source: https://www.kaggle.com/datasets/axondata/call-center-speech-dataset
+    declared_license: CC-BY-NC for public sample
+    decision: blocked
+    reason: public sample is noncommercial; a separately negotiated commercial corpus requires a fresh audit

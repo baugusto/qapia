@@ -1,0 +1,90 @@
+schema_version: 1
+reviewed_at: 2026-09-18
+release_policy:
+  require_all_blocking_gates: true
+  aggregate_score_cannot_override_critical_failure: true
+  locked_test_set: pt_br_full_meetings
+  split_unit: meeting
+  minimum_locked_meetings: 75
+  blind_human_review: true
+
+summary_gates:
+  - id: critical_unsupported_claims
+    metric: count
+    threshold: 0
+    blocking: true
+
+  - id: unsupported_proposition_rate
+    metric: proportion
+    operator: less_than_or_equal
+    threshold: 0.01
+    blocking: true
+
+  - id: decision_action_evidence_precision
+    metric: proportion
+    operator: greater_than_or_equal
+    threshold: 0.98
+    blocking: true
+
+  - id: decision_action_coverage
+    metric: proportion
+    operator: greater_than_or_equal
+    threshold: 0.90
+    blocking: true
+
+  - id: owner_deadline_precision
+    metric: proportion
+    operator: greater_than_or_equal
+    threshold: 0.99
+    blocking: true
+
+  - id: invented_owner_deadline_critical_count
+    metric: count
+    threshold: 0
+    blocking: true
+
+  - id: full_meeting_completion
+    metric: proportion
+    operator: equal
+    threshold: 1.0
+    blocking: true
+
+  - id: blind_preference_vs_current_baseline
+    metric: proportion
+    operator: greater_than_or_equal
+    threshold: 0.75
+    blocking: true
+
+asr_gates:
+  - id: composite_error_relative_improvement
+    description: Weighted WER, omissions, named entities, numbers, dates and negations.
+    metric: proportion
+    operator: greater_than_or_equal
+    threshold: 0.20
+    blocking: true
+
+  - id: silent_segment_loss
+    metric: count
+    threshold: 0
+    blocking: true
+
+system_gates:
+  - id: raw_meeting_data_leaves_device
+    metric: boolean
+    expected: false
+    blocking: true
+
+  - id: unknown_dataset_provenance
+    metric: count
+    threshold: 0
+    blocking: true
+
+  - id: silent_context_truncation
+    metric: count
+    threshold: 0
+    blocking: true
+
+  - id: apple_silicon_matrix_completed
+    metric: boolean
+    expected: true
+    blocking: true

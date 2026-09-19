@@ -25,3 +25,10 @@ transcript.txt
 summary.md
 ggml*.bin
 *.mlmodelc
+
+# Local AI research artifacts. Only manifests, schemas, configs and reports belong in Git.
+AI/data/
+AI/artifacts/
+AI/cache/
+AI/models/
+AI/runs/

@@ -8,6 +8,11 @@ This directory captures the product reasoning and engineering decisions behind Q
 2. [Technical Architecture](qapia-technical-architecture.md) describes the application layers, data flow and major design decisions.
 3. [Testing Checklist](qapia-testing-checklist.md) covers the main product and privacy scenarios.
 
+## Artificial intelligence research
+
+1. [Local AI Discovery and Specialization Plan](qapia-ai-discovery.md) records the target architecture, prior-adapter diagnosis, model shortlist, quality gates and execution plan.
+2. [Dataset Registry](qapia-ai-dataset-registry.yaml) is the machine-readable commercial-use screening and provenance allowlist.
+
 ## Integration and distribution
 
 1. [Google Calendar Setup](qapia-google-calendar-setup.md) explains OAuth configuration and the read only permission model.

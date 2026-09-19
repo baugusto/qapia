@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qapia.com.br/schemas/evidence-ledger.schema.json",
+  "title": "QAP.ia Evidence Ledger",
+  "description": "Versioned contract between transcript processing and minutes rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "meetingId", "chunks"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "meetingId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pseudonymous meeting identifier. Never include a title or participant name."
+    },
+    "language": {
+      "type": "string",
+      "default": "pt-BR"
+    },
+    "chunks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/chunk"
+      }
+    }
+  },
+  "$defs": {
+    "chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkId", "startMs", "endMs", "entries"],
+      "properties": {
+        "chunkId": { "type": "string", "minLength": 1 },
+        "startMs": { "type": "integer", "minimum": 0 },
+        "endMs": { "type": "integer", "minimum": 0 },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entryId", "kind", "claim", "evidence"],
+      "properties": {
+        "entryId": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["topic", "fact", "decision", "action", "open_question", "risk"]
+        },
+        "claim": { "type": "string", "minLength": 1 },
+        "owner": {
+          "type": ["string", "null"],
+          "description": "Null unless the source states the owner explicitly."
+        },
+        "dueDate": {
+          "type": ["string", "null"],
+          "description": "Verbatim or normalized date only when explicit in the source."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startMs", "endMs", "quote"],
+      "properties": {
+        "startMs": { "type": "integer", "minimum": 0 },
+        "endMs": { "type": "integer", "minimum": 0 },
+        "speakerLabel": { "type": ["string", "null"] },
+        "quote": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

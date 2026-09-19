@@ -1,0 +1,56 @@
+schema_version: 1
+reviewed_at: 2026-09-18
+selection_policy:
+  parameter_range_billions: [3, 4]
+  require_commercially_compatible_terms: true
+  require_portuguese_support: true
+  require_local_quantized_runtime: true
+  winner_is_selected_on_qapia_locked_eval: true
+  quality_precedes_size_and_speed: true
+
+candidates:
+  - id: qwen3_4b_instruct_2507
+    repository: Qwen/Qwen3-4B-Instruct-2507
+    revision: null
+    parameters_billions: 4.0
+    license: Apache-2.0
+    architecture: dense
+    priority: 1
+    roles: [evidence_extraction, minutes_rendering, claim_verification]
+
+  - id: phi_4_mini_instruct
+    repository: microsoft/Phi-4-mini-instruct
+    revision: null
+    parameters_billions: 3.8
+    license: MIT
+    architecture: dense
+    priority: 2
+    roles: [evidence_extraction, minutes_rendering, claim_verification]
+
+  - id: smollm3_3b
+    repository: HuggingFaceTB/SmolLM3-3B
+    revision: null
+    parameters_billions: 3.0
+    license: Apache-2.0
+    architecture: dense
+    priority: 3
+    roles: [evidence_extraction, minutes_rendering, claim_verification]
+
+  - id: granite_4_micro
+    repository: ibm-granite/granite-4.0-micro
+    revision: null
+    parameters_billions: 3.0
+    license: Apache-2.0
+    architecture: hybrid_moe
+    priority: 4
+    roles: [evidence_extraction, minutes_rendering, claim_verification]
+    conditions:
+      - validate PEFT, GGUF or MLX export before training
+
+baselines:
+  - id: current_qwen35_4b
+    purpose: current_app_quality_and_performance
+  - id: current_qwen35_9b
+    purpose: current_high_quality_option
+  - id: prior_qwen3_4b_adapter_v2
+    purpose: negative_control_not_for_release
